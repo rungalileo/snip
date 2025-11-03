@@ -1,0 +1,293 @@
+.epic-selector {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.epic-selector h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.epic-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.epic-tab {
+  flex: 1;
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  color: #666;
+  transition: all 0.2s ease;
+  margin-bottom: -2px;
+}
+
+.epic-tab:hover {
+  color: #333;
+  background: #f5f5f5;
+}
+
+.epic-tab.active {
+  color: #1976d2;
+  border-bottom-color: #1976d2;
+}
+
+.search-and-refresh {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: flex-start;
+}
+
+.search-bar {
+  position: relative;
+  flex: 1;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 16px;
+  padding-right: 40px;
+  font-size: 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.search-input:focus {
+  border-color: #1976d2;
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: #999;
+  font-size: 24px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.clear-search-btn:hover {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.epic-refresh-btn {
+  width: 48px;
+  height: 48px;
+  background: white;
+  color: #666;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.epic-refresh-btn:hover:not(:disabled) {
+  color: #1976d2;
+  border-color: #1976d2;
+  background: rgba(25, 118, 210, 0.05);
+}
+
+.epic-refresh-btn.refreshing {
+  animation: spin 1s linear infinite;
+  color: #1976d2;
+  border-color: #1976d2;
+}
+
+.epic-refresh-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.no-results {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  font-size: 15px;
+}
+
+.epic-selector-loading,
+.epic-selector-error {
+  text-align: center;
+  padding: 40px;
+  font-size: 18px;
+}
+
+.epic-selector-error {
+  color: #d32f2f;
+}
+
+.epic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.epic-item {
+  padding: 10px 14px;
+  background: #fafafa;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.epic-item:hover {
+  background: white;
+  border-color: #e0e0e0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.epic-item-bookmarked {
+  background: #ffe5e5;
+}
+
+.epic-item-bookmarked:hover {
+  background: #ffd5d5;
+  border-color: #ffb3b3;
+}
+
+.epic-item-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.epic-bookmark-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  color: #bbb;
+  flex-shrink: 0;
+}
+
+.epic-bookmark-btn:hover {
+  color: #1976d2;
+  background: rgba(25, 118, 210, 0.08);
+}
+
+.epic-bookmark-btn.bookmarked {
+  color: #1976d2;
+}
+
+.epic-bookmark-btn.bookmarked:hover {
+  background: rgba(25, 118, 210, 0.12);
+}
+
+.epic-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+  flex: 1;
+}
+
+.epic-meta {
+  font-size: 12px;
+  color: #888;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 400;
+}
+
+.epic-dates {
+  font-size: 10px;
+  color: #999;
+  line-height: 1.4;
+}
+
+.update-recent {
+  color: #d32f2f;
+  font-weight: 500;
+}
+
+.update-medium {
+  color: #f57c00;
+  font-weight: 500;
+}
+
+.update-old {
+  color: #666;
+  font-weight: 400;
+}
+
+.epic-story-count {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+}
+
+.pagination-btn {
+  padding: 10px 20px;
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #1565c0;
+}
+
+.pagination-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #666;
+}

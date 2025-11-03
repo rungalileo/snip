@@ -1,0 +1,140 @@
+.bookmarked-stories {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.bookmarked-stories-loading,
+.bookmarked-stories-error {
+  text-align: center;
+  padding: 40px;
+  font-size: 18px;
+}
+
+.bookmarked-stories-error {
+  color: #d32f2f;
+}
+
+.bookmarked-header {
+  margin-bottom: 30px;
+}
+
+.bookmarked-header h2 {
+  margin: 10px 0;
+  color: #333;
+}
+
+.bookmarked-count {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.no-bookmarks {
+  text-align: center;
+  padding: 80px 20px;
+  color: #999;
+}
+
+.no-bookmarks p {
+  font-size: 18px;
+  margin: 10px 0;
+}
+
+.no-bookmarks-hint {
+  font-size: 14px;
+  color: #bbb;
+}
+
+.bookmarked-table-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.bookmarked-table {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.bookmarked-table-header {
+  display: grid;
+  grid-template-columns: 45% 140px 100px 120px 80px;
+  gap: 12px;
+  padding: 16px 20px;
+  background: #f5f5f5;
+  font-weight: 600;
+  color: #555;
+  font-size: 14px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.bookmarked-story-row {
+  display: grid;
+  grid-template-columns: 45% 140px 100px 120px 80px;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  align-items: center;
+}
+
+.bookmarked-story-row:last-child {
+  border-bottom: none;
+}
+
+.bookmarked-story-row:hover {
+  background: #f9f9f9;
+}
+
+.bookmarked-story-row .col-title {
+  color: #333;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmarked-story-row .col-owner {
+  color: #666;
+  font-size: 14px;
+}
+
+.bookmarked-story-row .col-priority {
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.bookmarked-story-row .col-date {
+  color: #666;
+  font-size: 14px;
+}
+
+.bookmarked-story-row .col-link {
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bookmarked-story-row .shortcut-link {
+  color: #1976d2;
+  text-decoration: none;
+  font-size: 18px;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+}
+
+.bookmarked-story-row .shortcut-link:hover {
+  color: #1565c0;
+  background: rgba(25, 118, 210, 0.08);
+}

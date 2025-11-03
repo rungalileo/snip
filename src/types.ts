@@ -1,0 +1,68 @@
+export interface Epic {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  completed: boolean;
+  app_url: string;
+  active_story_count?: number;
+}
+
+export interface CustomField {
+  field_id: string;
+  value?: string;
+  value_id?: string;
+}
+
+export interface WorkflowState {
+  id: number;
+  name: string;
+  type: string;
+}
+
+export interface Story {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  workflow_state_id: number;
+  workflow_state?: WorkflowState;
+  iteration_id?: number;
+  iteration?: Iteration;
+  owner_ids: string[];
+  requested_by_id: string;
+  epic_id: number;
+  app_url: string;
+  completed: boolean;
+  completed_at?: string;
+  labels: Label[];
+  custom_fields?: CustomField[];
+}
+
+export interface Label {
+  id: number;
+  name: string;
+  color?: string;
+  description?: string;
+}
+
+export interface Member {
+  id: string;
+  profile: {
+    name: string;
+    email_address: string;
+  };
+}
+
+export interface Iteration {
+  id: number;
+  name: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
