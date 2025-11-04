@@ -22,7 +22,7 @@ const LABEL_COLORS: Record<string, string> = {
   'FOUNDATIONAL WORK': 'linear-gradient(180deg, #66bb6a 0%, #43a047 100%)',
   'PRODUCT FEATURE': 'linear-gradient(180deg, #42a5f5 0%, #1e88e5 100%)',
   'TASK': 'linear-gradient(180deg, #ab47bc 0%, #8e24aa 100%)',
-  'VIBE-CODEABLE': 'linear-gradient(180deg, #26a69a 0%, #00897b 100%)',
+  'SMALL IMPROVEMENT': 'linear-gradient(180deg, #26a69a 0%, #00897b 100%)',
   'CUSTOMER FEATURE REQUEST': 'linear-gradient(180deg, #7e57c2 0%, #5e35b1 100%)',
   'NICE TO HAVE': 'linear-gradient(180deg, #8d6e63 0%, #6d4c41 100%)',
 };

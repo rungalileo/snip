@@ -18,7 +18,7 @@ const LABEL_OPTIONS = [
   { name: 'FOUNDATIONAL WORK', color: '#43a047' },
   { name: 'PRODUCT FEATURE', color: '#1e88e5' },
   { name: 'TASK', color: '#9c27b0' },
-  { name: 'VIBE-CODEABLE', color: '#00897b' },
+  { name: 'SMALL IMPROVEMENT', color: '#00897b' },
   { name: 'CUSTOMER FEATURE REQUEST', color: '#7c4dff' },
   { name: 'NICE TO HAVE', color: '#78909c' },
 ];
