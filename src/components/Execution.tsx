@@ -63,6 +63,13 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect }) => {
       setLoading(true);
       const data = await api.getIterations();
 
+      // Ensure data is an array
+      if (!Array.isArray(data)) {
+        console.error('API returned non-array data for iterations:', data);
+        setError('Failed to load iterations: Invalid data format');
+        return;
+      }
+
       const now = new Date();
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(now.getDate() - 30);
@@ -110,14 +117,28 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect }) => {
     try {
       setLoadingStories(true);
       const data = await api.getStoriesForIteration(iterationId);
-      setStories(data);
+
+      // Ensure data is an array
+      if (!Array.isArray(data)) {
+        console.error('API returned non-array data for stories:', data);
+        setStories([]);
+      } else {
+        setStories(data);
+      }
 
       // Load bookmarks
       const bookmarks = await api.getBookmarks();
-      setBookmarkedIds(new Set(bookmarks.map(b => b.id)));
+      // Ensure bookmarks is an array
+      if (Array.isArray(bookmarks)) {
+        setBookmarkedIds(new Set(bookmarks.map(b => b.id)));
+      } else {
+        console.error('API returned non-array data for bookmarks:', bookmarks);
+        setBookmarkedIds(new Set());
+      }
     } catch (err) {
       console.error('Error loading stories for iteration:', err);
       setStories([]);
+      setBookmarkedIds(new Set());
     } finally {
       setLoadingStories(false);
     }

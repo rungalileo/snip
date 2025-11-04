@@ -170,7 +170,9 @@ export const EpicSelector: React.FC<EpicSelectorProps> = ({ onEpicSelect }) => {
   const displayEpics = activeTab === 'all' ? epics : bookmarkedEpics;
 
   // Filter epics based on search query
-  const filteredEpics = displayEpics.filter(epic =>
+  // Ensure displayEpics is always an array
+  const safeDisplayEpics = Array.isArray(displayEpics) ? displayEpics : [];
+  const filteredEpics = safeDisplayEpics.filter(epic =>
     epic.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 

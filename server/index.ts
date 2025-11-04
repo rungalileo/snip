@@ -68,18 +68,6 @@ async function connectToMongoDB() {
   }
 }
 
-// Startup function
-async function startServer() {
-  await connectToMongoDB();
-
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-}
-
-// Initialize server
-startServer();
-
 // Get all epics with pagination
 app.get('/api/epics', async (req, res) => {
   try {
@@ -677,3 +665,15 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
   });
 }
+
+// Startup function
+async function startServer() {
+  await connectToMongoDB();
+
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+// Initialize server
+startServer();
