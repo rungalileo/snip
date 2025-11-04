@@ -208,8 +208,6 @@ export const EpicSelector: React.FC<EpicSelectorProps> = ({ onEpicSelect }) => {
 
   return (
     <div className="epic-selector">
-      <h2>Select an Epic</h2>
-
       <div className="epic-tabs">
         <button
           className={`epic-tab ${activeTab === 'all' ? 'active' : ''}`}
@@ -265,19 +263,31 @@ export const EpicSelector: React.FC<EpicSelectorProps> = ({ onEpicSelect }) => {
           <button
             onClick={goToPreviousPage}
             disabled={currentPage === 0}
-            className="pagination-btn"
+            className="pagination-arrow"
           >
-            ← Previous
+            ←
           </button>
-          <span className="pagination-info">
-            Page {currentPage + 1} of {totalPages} ({filteredEpics.length} epics)
-          </span>
+          <div className="pagination-center">
+            <div className="pagination-info">
+              Showing {startIndex + 1}-{Math.min(endIndex, filteredEpics.length)} of {filteredEpics.length} epics
+            </div>
+            <div className="pagination-dots">
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i)}
+                  className={`pagination-dot ${currentPage === i ? 'active' : ''}`}
+                  aria-label={`Go to page ${i + 1}`}
+                />
+              ))}
+            </div>
+          </div>
           <button
             onClick={goToNextPage}
             disabled={currentPage === totalPages - 1}
-            className="pagination-btn"
+            className="pagination-arrow"
           >
-            Next →
+            →
           </button>
         </div>
       )}

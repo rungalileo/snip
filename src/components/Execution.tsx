@@ -101,9 +101,17 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect }) => {
 
       setIterations(sortedIterations);
 
-      // Auto-select the first iteration if available
+      // Auto-select the current iteration (ongoing) if available, otherwise select the first one
       if (sortedIterations.length > 0) {
-        setSelectedIterationId(sortedIterations[0].id);
+        // Find the current ongoing iteration
+        const currentIteration = sortedIterations.find(iteration => {
+          const startDate = new Date(iteration.start_date);
+          const endDate = new Date(iteration.end_date);
+          return now >= startDate && now <= endDate;
+        });
+
+        // Select current iteration if found, otherwise select the first (most recent)
+        setSelectedIterationId(currentIteration ? currentIteration.id : sortedIterations[0].id);
       }
     } catch (err) {
       setError('Failed to load iterations');
@@ -359,7 +367,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect }) => {
               <div className="overall-chart-container">
                 <BarChart
                   data={overallLabelCounts}
-                  title="By Category"
+                  title="Tickets by Category"
                   maxCount={maxCount}
                   onBarClick={(label) => handleBarClick(label)}
                 />
@@ -425,7 +433,7 @@ const OwnerStackedChartWrapper: React.FC<{
   return (
     <StackedBarChart
       data={stackedData}
-      title="By Owner"
+      title="Tickets by Owner"
       onBarClick={onBarClick}
     />
   );

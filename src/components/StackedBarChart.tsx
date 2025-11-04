@@ -17,14 +17,14 @@ interface StackedBarChartProps {
 
 // Color palette for label types (matching BarChart)
 const LABEL_COLORS: Record<string, string> = {
-  'CUSTOMER ESCALATION': 'linear-gradient(180deg, #e53935 0%, #c62828 100%)',
-  'BUG': 'linear-gradient(180deg, #fb8c00 0%, #ef6c00 100%)',
-  'FOUNDATIONAL WORK': 'linear-gradient(180deg, #43a047 0%, #2e7d32 100%)',
-  'PRODUCT FEATURE': 'linear-gradient(180deg, #1e88e5 0%, #1565c0 100%)',
-  'TASK': 'linear-gradient(180deg, #9c27b0 0%, #7b1fa2 100%)',
-  'VIBE-CODEABLE': 'linear-gradient(180deg, #00897b 0%, #00695c 100%)',
-  'CUSTOMER FEATURE REQUEST': 'linear-gradient(180deg, #7c4dff 0%, #651fff 100%)',
-  'NICE TO HAVE': 'linear-gradient(180deg, #78909c 0%, #546e7a 100%)',
+  'CUSTOMER ESCALATION': 'linear-gradient(180deg, #ef5350 0%, #e53935 100%)',
+  'BUG': 'linear-gradient(180deg, #ffa726 0%, #fb8c00 100%)',
+  'FOUNDATIONAL WORK': 'linear-gradient(180deg, #66bb6a 0%, #43a047 100%)',
+  'PRODUCT FEATURE': 'linear-gradient(180deg, #42a5f5 0%, #1e88e5 100%)',
+  'TASK': 'linear-gradient(180deg, #ab47bc 0%, #8e24aa 100%)',
+  'VIBE-CODEABLE': 'linear-gradient(180deg, #26a69a 0%, #00897b 100%)',
+  'CUSTOMER FEATURE REQUEST': 'linear-gradient(180deg, #7e57c2 0%, #5e35b1 100%)',
+  'NICE TO HAVE': 'linear-gradient(180deg, #8d6e63 0%, #6d4c41 100%)',
 };
 
 export const StackedBarChart: React.FC<StackedBarChartProps> = ({ data, title, onBarClick }) => {
