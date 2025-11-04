@@ -17,11 +17,6 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from dist directory in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../dist')));
-}
-
 const SHORTCUT_API_BASE = 'https://api.app.shortcut.com/api/v3';
 const SHORTCUT_TOKEN = process.env.SHORTCUT_TOKEN;
 
@@ -659,8 +654,11 @@ app.delete('/api/epics/bookmarks/:epicId', async (req, res) => {
   }
 });
 
-// Serve index.html for all other routes (client-side routing) in production
+// Serve static files from dist directory in production (AFTER API routes)
 if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../dist')));
+
+  // Serve index.html for all other routes (client-side routing)
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
   });
