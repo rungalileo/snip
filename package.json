@@ -6,9 +6,9 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx watch server/index.ts",
     "dev:client": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
-    "start": "NODE_ENV=production node server/index.js",
+    "start": "NODE_ENV=production tsx server/index.ts",
     "build-and-start": "npm run build && npm start"
   },
   "dependencies": {
@@ -18,7 +18,10 @@
     "express": "^4.18.2",
     "mongodb": "^6.20.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -27,9 +30,6 @@
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.2.1",
-    "concurrently": "^8.2.2",
-    "tsx": "^4.7.0",
-    "typescript": "^5.3.3",
-    "vite": "^5.0.12"
+    "concurrently": "^8.2.2"
   }
 }

@@ -62,6 +62,15 @@ export const EpicSelector: React.FC<EpicSelectorProps> = ({ onEpicSelect }) => {
   const loadBookmarkedEpics = async () => {
     try {
       const bookmarks = await api.getEpicBookmarks();
+
+      // Ensure bookmarks is an array
+      if (!Array.isArray(bookmarks)) {
+        console.error('API returned non-array bookmarks:', bookmarks);
+        setBookmarkedEpics([]);
+        setBookmarkedIds(new Set());
+        return;
+      }
+
       // Sort by updated_at date (most recent first)
       const sortedBookmarks = bookmarks.sort((a, b) =>
         new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
@@ -70,6 +79,8 @@ export const EpicSelector: React.FC<EpicSelectorProps> = ({ onEpicSelect }) => {
       setBookmarkedIds(new Set(sortedBookmarks.map(e => e.id)));
     } catch (err) {
       console.error('Error loading bookmarked epics:', err);
+      setBookmarkedEpics([]);
+      setBookmarkedIds(new Set());
     }
   };
 
@@ -78,14 +89,22 @@ export const EpicSelector: React.FC<EpicSelectorProps> = ({ onEpicSelect }) => {
       const cachedData = localStorage.getItem(EPICS_CACHE_KEY);
       if (cachedData) {
         const parsedData = JSON.parse(cachedData);
-        setEpics(parsedData);
-        setLoading(false);
+        // Ensure cached data is an array
+        if (Array.isArray(parsedData)) {
+          setEpics(parsedData);
+          setLoading(false);
+        } else {
+          console.error('Cached data is not an array, clearing cache');
+          localStorage.removeItem(EPICS_CACHE_KEY);
+          loadEpics(false);
+        }
       } else {
         // No cache, fetch from backend
         loadEpics(false);
       }
     } catch (err) {
       console.error('Error loading from cache:', err);
+      localStorage.removeItem(EPICS_CACHE_KEY);
       loadEpics(false);
     }
   };
@@ -98,6 +117,14 @@ export const EpicSelector: React.FC<EpicSelectorProps> = ({ onEpicSelect }) => {
         setLoading(true);
       }
       const data = await api.getEpics();
+
+      // Ensure data is an array
+      if (!Array.isArray(data)) {
+        console.error('API returned non-array data:', data);
+        setError('Failed to load epics: Invalid data format');
+        return;
+      }
+
       // Filter out completed epics and sort by updated date
       const activeEpics = data
         .filter(epic => !epic.completed)
