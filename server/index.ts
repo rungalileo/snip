@@ -17,6 +17,12 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
+
 const SHORTCUT_API_BASE = 'https://api.app.shortcut.com/api/v3';
 const SHORTCUT_TOKEN = process.env.SHORTCUT_TOKEN;
 
@@ -59,9 +65,19 @@ async function connectToMongoDB() {
     console.log('✅ Connected to MongoDB database:', MONGO_DB_NAME);
   } catch (error) {
     console.error('❌ Failed to connect to MongoDB:', error);
-    process.exit(1);
+    console.error('Server will continue but bookmark features will not work');
+    // Don't exit - allow server to run without MongoDB for testing
   }
 }
+
+// Debug route to test if API routing works
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV
+  });
+});
 
 // Get all epics with pagination
 app.get('/api/epics', async (req, res) => {
@@ -666,12 +682,24 @@ if (process.env.NODE_ENV === 'production') {
 
 // Startup function
 async function startServer() {
+  console.log('🚀 Starting server...');
+  console.log('📍 Environment:', process.env.NODE_ENV || 'development');
+  console.log('📂 __dirname:', __dirname);
+  console.log('📂 dist path:', path.join(__dirname, '../dist'));
+
   await connectToMongoDB();
 
   app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`✅ Server running on port ${PORT}`);
+    console.log('🔍 API routes registered:');
+    console.log('   GET /api/health');
+    console.log('   GET /api/epics');
+    console.log('   GET /api/iterations');
+    console.log('   GET /api/bookmarks');
+    console.log('   ... and more');
   });
 }
 
 // Initialize server
+console.log('📝 Registering routes...');
 startServer();
