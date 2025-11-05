@@ -6,9 +6,10 @@ interface BarChartProps {
   title?: string;
   maxCount?: number;
   onBarClick?: (label: string) => void;
+  categoryPercentages?: Record<string, number>;
 }
 
-export const BarChart: React.FC<BarChartProps> = ({ data, title, maxCount, onBarClick }) => {
+export const BarChart: React.FC<BarChartProps> = ({ data, title, maxCount, onBarClick, categoryPercentages }) => {
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -37,9 +38,43 @@ export const BarChart: React.FC<BarChartProps> = ({ data, title, maxCount, onBar
     'OTHER': 'linear-gradient(180deg, #9e9e9e 0%, #757575 100%)',
   };
 
+  // Map category names to CSS class names for pills
+  const CATEGORY_CLASS_MAP: Record<string, string> = {
+    'CUSTOMER ESCALATION': 'customer-escalation',
+    'BUG': 'bug',
+    'FOUNDATIONAL WORK': 'foundational-work',
+    'PRODUCT FEATURE': 'product-feature',
+    'TASK': 'task',
+    'SMALL IMPROVEMENT': 'small-improvement',
+    'CUSTOMER FEATURE REQUEST': 'customer-feature-request',
+    'NICE TO HAVE': 'nice-to-have',
+    'OTHER': 'other',
+  };
+
+  // Format category name for display
+  const formatCategoryName = (category: string): string => {
+    return category.toLowerCase();
+  };
+
   return (
     <div className="bar-chart">
-      {title && <h3 className="bar-chart-title">{title}</h3>}
+      {title && (
+        <div className="bar-chart-header">
+          <h3 className="bar-chart-title">{title}</h3>
+          {categoryPercentages && (
+            <div className="category-pills">
+              {Object.entries(categoryPercentages).map(([category, percentage]) => (
+                <span
+                  key={category}
+                  className={`category-pill ${CATEGORY_CLASS_MAP[category] || 'other'}`}
+                >
+                  {percentage}% {formatCategoryName(category)}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="chart-wrapper">
         {/* Y-axis labels */}

@@ -281,6 +281,19 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect }) => {
     }));
   }, [stories]);
 
+  // Calculate category percentages for all categories
+  const categoryPercentages = useMemo(() => {
+    const totalStories = stories.length;
+    const percentages: Record<string, number> = {};
+
+    LABEL_CATEGORIES_WITH_OTHER.forEach(category => {
+      const count = overallLabelCounts.find(item => item.label === category)?.count || 0;
+      percentages[category] = totalStories > 0 ? Math.round((count / totalStories) * 100) : 0;
+    });
+
+    return percentages;
+  }, [stories, overallLabelCounts]);
+
   // Calculate status breakdown for each label category
   const statusByCategory = useMemo(() => {
     const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification'];
@@ -554,6 +567,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect }) => {
                     title="Tickets by Category"
                     maxCount={maxCount}
                     onBarClick={(label) => handleBarClick(label)}
+                    categoryPercentages={categoryPercentages}
                   />
                 </div>
 
