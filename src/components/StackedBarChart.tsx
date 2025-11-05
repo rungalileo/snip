@@ -25,6 +25,7 @@ const LABEL_COLORS: Record<string, string> = {
   'SMALL IMPROVEMENT': 'linear-gradient(180deg, #26a69a 0%, #00897b 100%)',
   'CUSTOMER FEATURE REQUEST': 'linear-gradient(180deg, #7e57c2 0%, #5e35b1 100%)',
   'NICE TO HAVE': 'linear-gradient(180deg, #8d6e63 0%, #6d4c41 100%)',
+  'OTHER': 'linear-gradient(180deg, #9e9e9e 0%, #757575 100%)', // Gray for unlabeled/other
 };
 
 export const StackedBarChart: React.FC<StackedBarChartProps> = ({ data, title, onBarClick }) => {
@@ -40,18 +41,11 @@ export const StackedBarChart: React.FC<StackedBarChartProps> = ({ data, title, o
     setMousePosition({ x: e.clientX, y: e.clientY });
   };
 
-  // Calculate minimum width based on number of bars
-  // Each bar needs 30px (22px bar + 8px gap)
-  const barWidth = 30; // 22px bar + 8px gap
-  const padding = 26; // left padding (10px) + right padding (16px)
-  const minWidth = (data.length * barWidth) + padding;
-  const needsScroll = data.length > 20; // Enable scrolling when more than 20 bars
-
   return (
     <div className="stacked-bar-chart">
       {title && <h3 className="stacked-chart-title">{title}</h3>}
 
-      <div className="stacked-chart-wrapper" style={{ overflowX: needsScroll ? 'auto' : 'visible' }}>
+      <div className="stacked-chart-wrapper">
         {/* Y-axis labels */}
         <div className="stacked-y-labels">
           <div className="stacked-y-label">{yAxisMax}</div>
@@ -62,7 +56,7 @@ export const StackedBarChart: React.FC<StackedBarChartProps> = ({ data, title, o
         </div>
 
         {/* Chart area */}
-        <div className="stacked-chart-main" style={{ minWidth: needsScroll ? `${minWidth}px` : 'auto' }}>
+        <div className="stacked-chart-main">
           {/* Grid */}
           <div className="stacked-grid">
             <div className="stacked-grid-line"></div>

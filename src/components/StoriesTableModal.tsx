@@ -59,10 +59,10 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
           ) : (
             <div className="stories-table-container">
               <div className="stories-table-header">
+                <div className="col-priority">Priority</div>
                 <div className="col-title">Title</div>
                 <div className="col-owner">Owner</div>
                 <div className="col-labels">Labels</div>
-                <div className="col-priority">Priority</div>
                 <div className="col-date">Created</div>
                 <div className="col-link">Link</div>
               </div>

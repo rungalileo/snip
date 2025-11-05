@@ -1,4 +1,4 @@
-.stacked-bar-chart {
+.status-stacked-bar-chart {
   background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
   border: 1px solid #e0e0e0;
   border-radius: 12px;
@@ -10,7 +10,7 @@
   flex-direction: column;
 }
 
-.stacked-chart-title {
+.status-chart-title {
   margin: 0 0 30px 0;
   font-size: 18px;
   font-weight: 600;
@@ -18,7 +18,7 @@
   text-align: center;
 }
 
-.stacked-chart-wrapper {
+.status-chart-wrapper {
   display: flex;
   gap: 8px;
   align-items: stretch;
@@ -30,26 +30,26 @@
 }
 
 /* Custom scrollbar styling */
-.stacked-chart-wrapper::-webkit-scrollbar {
+.status-chart-wrapper::-webkit-scrollbar {
   height: 8px;
 }
 
-.stacked-chart-wrapper::-webkit-scrollbar-track {
+.status-chart-wrapper::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 4px;
 }
 
-.stacked-chart-wrapper::-webkit-scrollbar-thumb {
+.status-chart-wrapper::-webkit-scrollbar-thumb {
   background: #888;
   border-radius: 4px;
 }
 
-.stacked-chart-wrapper::-webkit-scrollbar-thumb:hover {
+.status-chart-wrapper::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
 
 /* Y-axis labels */
-.stacked-y-labels {
+.status-y-labels {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -64,7 +64,7 @@
   margin-right: -8px;
 }
 
-.stacked-y-label {
+.status-y-label {
   font-size: 11px;
   color: #666;
   font-weight: 500;
@@ -72,32 +72,8 @@
   line-height: 1;
 }
 
-/* Right Y-axis labels (percentage) */
-.stacked-y-labels-right {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  width: 40px;
-  padding-top: 20px;
-  padding-bottom: 40px;
-  padding-left: 8px;
-  flex-shrink: 0;
-  position: sticky;
-  right: -16px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  z-index: 10;
-}
-
-.stacked-y-label-right {
-  font-size: 11px;
-  color: #666;
-  font-weight: 500;
-  text-align: left;
-  line-height: 1;
-}
-
 /* Main chart area */
-.stacked-chart-main {
+.status-chart-main {
   flex: 1;
   position: relative;
   display: flex;
@@ -106,29 +82,29 @@
 }
 
 /* Grid lines */
-.stacked-grid {
+.status-grid {
   position: absolute;
   top: 20px;
   left: 0;
   right: 10px;
   bottom: 0;
-  height: 250px;
+  height: 200px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   pointer-events: none;
 }
 
-.stacked-grid-line {
+.status-grid-line {
   width: 100%;
   height: 1px;
   background: #e8e8e8;
 }
 
 /* Bars area */
-.stacked-bars-area {
+.status-bars-area {
   display: flex;
-  gap: 8px;
+  gap: 16px;
   justify-content: space-evenly;
   position: relative;
   z-index: 1;
@@ -140,7 +116,7 @@
   width: 100%;
 }
 
-.stacked-bar-item {
+.status-bar-item {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -149,40 +125,15 @@
   position: relative;
 }
 
-.stacked-bar-column {
+.status-bar-column {
   width: 100%;
-  height: 250px;
+  height: 200px;
   display: flex;
   align-items: flex-end;
   position: relative;
 }
 
-/* Progress dots */
-.stacked-progress-dot {
-  position: absolute;
-  left: 50%;
-  transform: translate(-50%, 50%);
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  z-index: 2;
-  pointer-events: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.stacked-progress-dot.completed-dot {
-  background-color: #2e7d32;
-}
-
-.stacked-progress-dot.in-motion-dot {
-  background-color: #e65100;
-}
-
-.stacked-progress-dot.not-started-dot {
-  background-color: #c62828;
-}
-
-.stacked-bar {
+.status-bar {
   width: 100%;
   display: flex;
   flex-direction: column-reverse;
@@ -192,56 +143,56 @@
   transition: all 0.3s ease;
 }
 
-.stacked-bar:hover {
+.status-bar:hover {
   transform: scaleY(1.02) scaleX(1.05);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
 }
 
-.bar-segment {
+.status-segment {
   width: 100%;
   cursor: pointer;
   transition: filter 0.2s ease;
 }
 
-.bar-segment:hover {
+.status-segment:hover {
   filter: brightness(1.15);
 }
 
 /* X-axis labels */
-.stacked-x-labels {
+.status-x-labels {
   display: flex;
-  gap: 8px;
+  gap: 16px;
   justify-content: space-evenly;
   border-top: 1px solid #333;
   padding-top: 10px;
   padding-left: 10px;
   padding-right: 16px;
   margin-top: 0;
-  margin-left: 1px;
   width: 100%;
 }
 
-.stacked-x-label-item {
+.status-x-label-item {
   flex: 1 1 0;
   min-width: 0;
   display: flex;
   justify-content: center;
 }
 
-.stacked-bar-label {
+.status-bar-label {
   font-size: 10px;
-  color: #333;
+  color: #666;
   text-align: center;
-  font-weight: 600;
-  min-height: 20px;
+  word-wrap: break-word;
+  line-height: 1.3;
+  font-weight: 500;
+  min-height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  writing-mode: horizontal-tb;
 }
 
 /* Tooltip that follows cursor */
-.stacked-bar-tooltip-cursor {
+.status-bar-tooltip-cursor {
   position: fixed;
   transform: translate(12px, -50%);
   background: #000000;
@@ -255,7 +206,7 @@
   white-space: nowrap;
 }
 
-.stacked-tooltip-title {
+.status-tooltip-title {
   font-size: 15px;
   font-weight: 700;
   margin-bottom: 6px;
@@ -263,14 +214,14 @@
   text-align: left;
 }
 
-.stacked-tooltip-total {
+.status-tooltip-total {
   font-size: 13px;
   color: #b0b0b0;
   margin-bottom: 12px;
   text-align: left;
 }
 
-.stacked-tooltip-breakdown {
+.status-tooltip-breakdown {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -279,33 +230,33 @@
   border-top: 1px solid #333;
 }
 
-.breakdown-item {
+.status-breakdown-item {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 12px;
 }
 
-.breakdown-color {
+.status-breakdown-color {
   width: 12px;
   height: 12px;
   border-radius: 2px;
   flex-shrink: 0;
 }
 
-.breakdown-label {
+.status-breakdown-label {
   flex: 1;
   color: #ffffff;
   font-weight: 500;
 }
 
-.breakdown-count {
+.status-breakdown-count {
   color: #ffffff;
   font-weight: 700;
   margin-left: auto;
 }
 
-.stacked-tooltip-cta {
+.status-tooltip-cta {
   font-size: 11px;
   font-weight: 600;
   color: #ffffff;

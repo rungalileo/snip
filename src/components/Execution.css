@@ -127,6 +127,7 @@
 .iteration-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 16px;
   padding-top: 12px;
   border-top: 1px solid #f0f0f0;
@@ -152,6 +153,35 @@
   font-size: 14px;
   color: #666;
   font-weight: 600;
+}
+
+.progress-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.progress-stat {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.progress-stat.completed {
+  color: #2e7d32;
+  background-color: #e8f5e9;
+}
+
+.progress-stat.in-motion {
+  color: #e65100;
+  background-color: #fff3e0;
+}
+
+.progress-stat.not-started {
+  color: #c62828;
+  background-color: #ffebee;
 }
 
 .loading-stories {

@@ -10,10 +10,27 @@ interface StoryRowProps {
   isBookmarked?: boolean;
 }
 
+// Helper function to get priority color
+const getPriorityColor = (priority: string): string => {
+  switch (priority.toLowerCase()) {
+    case 'highest':
+      return '#c62828'; // Deep red
+    case 'high':
+      return '#ef5350'; // Red
+    case 'medium':
+      return '#ff9800'; // Orange
+    case 'low':
+      return '#2196f3'; // Blue
+    default:
+      return '#666'; // Default gray
+  }
+};
+
 export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, isBookmarked }) => {
   const ownerId = story.owner_ids && story.owner_ids.length > 0 ? story.owner_ids[0] : undefined;
   const ownerName = useOwnerName(ownerId);
   const priority = getPriority(story);
+  const priorityColor = getPriorityColor(priority);
 
   const handleLinkClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -21,6 +38,7 @@ export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, 
 
   return (
     <div className="story-row" onClick={onClick}>
+      <div className="col-priority" style={{ color: priorityColor }}>{priority}</div>
       <div className="col-title">
         {isBookmarked && (
           <span className="bookmark-indicator" title="Bookmarked">
@@ -50,7 +68,6 @@ export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, 
           <span className="no-labels">—</span>
         )}
       </div>
-      <div className="col-priority">{priority}</div>
       <div className="col-date">{formatDate(story.created_at)}</div>
       <div className="col-link">
         <a

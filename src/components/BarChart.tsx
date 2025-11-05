@@ -24,17 +24,18 @@ export const BarChart: React.FC<BarChartProps> = ({ data, title, maxCount, onBar
     setMousePosition({ x: e.clientX, y: e.clientY });
   };
 
-  // Color palette for bars
-  const colors = [
-    'linear-gradient(180deg, #ef5350 0%, #e53935 100%)', // Balanced Red
-    'linear-gradient(180deg, #ffa726 0%, #fb8c00 100%)', // Balanced Orange
-    'linear-gradient(180deg, #66bb6a 0%, #43a047 100%)', // Balanced Green
-    'linear-gradient(180deg, #42a5f5 0%, #1e88e5 100%)', // Balanced Blue
-    'linear-gradient(180deg, #ab47bc 0%, #8e24aa 100%)', // Balanced Purple
-    'linear-gradient(180deg, #26a69a 0%, #00897b 100%)', // Balanced Teal
-    'linear-gradient(180deg, #7e57c2 0%, #5e35b1 100%)', // Balanced Deep Purple
-    'linear-gradient(180deg, #8d6e63 0%, #6d4c41 100%)', // Balanced Brown
-  ];
+  // Color palette for bars mapped by label name
+  const LABEL_COLORS: Record<string, string> = {
+    'CUSTOMER ESCALATION': 'linear-gradient(180deg, #ef5350 0%, #e53935 100%)',
+    'BUG': 'linear-gradient(180deg, #ffa726 0%, #fb8c00 100%)',
+    'FOUNDATIONAL WORK': 'linear-gradient(180deg, #66bb6a 0%, #43a047 100%)',
+    'PRODUCT FEATURE': 'linear-gradient(180deg, #42a5f5 0%, #1e88e5 100%)',
+    'TASK': 'linear-gradient(180deg, #ab47bc 0%, #8e24aa 100%)',
+    'SMALL IMPROVEMENT': 'linear-gradient(180deg, #26a69a 0%, #00897b 100%)',
+    'CUSTOMER FEATURE REQUEST': 'linear-gradient(180deg, #7e57c2 0%, #5e35b1 100%)',
+    'NICE TO HAVE': 'linear-gradient(180deg, #8d6e63 0%, #6d4c41 100%)',
+    'OTHER': 'linear-gradient(180deg, #9e9e9e 0%, #757575 100%)',
+  };
 
   return (
     <div className="bar-chart">
@@ -81,7 +82,7 @@ export const BarChart: React.FC<BarChartProps> = ({ data, title, maxCount, onBar
                         className="bar"
                         style={{
                           height: `${finalHeight}%`,
-                          background: colors[index % colors.length]
+                          background: LABEL_COLORS[item.label] || '#ccc'
                         }}
                         onClick={() => onBarClick && onBarClick(item.label)}
                       />
