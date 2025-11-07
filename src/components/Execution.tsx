@@ -5,7 +5,6 @@ import { BarChart } from './BarChart';
 import { StackedBarChart } from './StackedBarChart';
 import { StatusStackedBarChart } from './StatusStackedBarChart';
 import { StoriesTableModal } from './StoriesTableModal';
-import { useOwnerName } from '../hooks/useOwnerName';
 import './Execution.css';
 
 // Label categories from StoryModal
@@ -700,15 +699,47 @@ const OwnerStackedChartWrapper: React.FC<{
   }>;
   onBarClick: (ownerId: string, label: string) => void;
 }> = ({ ownerLabelCounts, onBarClick }) => {
-  // Call useOwnerName for each owner (hooks must be called in consistent order)
-  const ownerNames = ownerLabelCounts.map(({ ownerId }) =>
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useOwnerName(ownerId === 'unassigned' ? undefined : ownerId)
-  );
+  const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch all owner names
+  useEffect(() => {
+    const fetchOwnerNames = async () => {
+      setIsLoading(true);
+      const names: Record<string, string> = {};
+
+      for (const { ownerId } of ownerLabelCounts) {
+        if (ownerId === 'unassigned') {
+          names[ownerId] = 'Unassigned';
+        } else {
+          try {
+            const member = await api.getMember(ownerId);
+            names[ownerId] = member.profile?.name || 'Unknown';
+          } catch (error) {
+            console.error('Error fetching owner:', error);
+            names[ownerId] = 'Unknown';
+          }
+        }
+      }
+
+      setOwnerNames(names);
+      setIsLoading(false);
+    };
+
+    if (ownerLabelCounts.length > 0) {
+      fetchOwnerNames();
+    } else {
+      setIsLoading(false);
+    }
+  }, [ownerLabelCounts]);
+
+  if (isLoading) {
+    return <div>Loading owner data...</div>;
+  }
 
   // Transform data for stacked bar chart
-  const stackedData = ownerLabelCounts.map(({ ownerId, data }, index) => {
-    const ownerName = ownerNames[index];
+  const stackedData = ownerLabelCounts.map(({ ownerId, data }) => {
+    const ownerName = ownerNames[ownerId] || 'Unknown';
     const totalCount = data.reduce((sum, item) => sum + item.count, 0);
     const initials = getInitials(ownerName);
 
@@ -741,15 +772,47 @@ const StatusByOwnerWrapper: React.FC<{
   }>;
   onBarClick: (ownerId: string, ownerName: string, status: 'completed' | 'inMotion' | 'notStarted') => void;
 }> = ({ statusByOwner, onBarClick }) => {
-  // Call useOwnerName for each owner (hooks must be called in consistent order)
-  const ownerNames = statusByOwner.map(({ ownerId }) =>
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useOwnerName(ownerId === 'unassigned' ? undefined : ownerId)
-  );
+  const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch all owner names
+  useEffect(() => {
+    const fetchOwnerNames = async () => {
+      setIsLoading(true);
+      const names: Record<string, string> = {};
+
+      for (const { ownerId } of statusByOwner) {
+        if (ownerId === 'unassigned') {
+          names[ownerId] = 'Unassigned';
+        } else {
+          try {
+            const member = await api.getMember(ownerId);
+            names[ownerId] = member.profile?.name || 'Unknown';
+          } catch (error) {
+            console.error('Error fetching owner:', error);
+            names[ownerId] = 'Unknown';
+          }
+        }
+      }
+
+      setOwnerNames(names);
+      setIsLoading(false);
+    };
+
+    if (statusByOwner.length > 0) {
+      fetchOwnerNames();
+    } else {
+      setIsLoading(false);
+    }
+  }, [statusByOwner]);
+
+  if (isLoading) {
+    return <div>Loading owner data...</div>;
+  }
 
   // Transform data for status stacked bar chart
-  const statusData = statusByOwner.map(({ ownerId, completedCount, inMotionCount, notStartedCount, totalCount }, index) => {
-    const ownerName = ownerNames[index];
+  const statusData = statusByOwner.map(({ ownerId, completedCount, inMotionCount, notStartedCount, totalCount }) => {
+    const ownerName = ownerNames[ownerId] || 'Unknown';
     const initials = getInitials(ownerName);
 
     return {
