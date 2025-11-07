@@ -702,28 +702,43 @@ const OwnerStackedChartWrapper: React.FC<{
   const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 
+  // Create a stable key from owner IDs to use as dependency
+  const ownerIdsKey = useMemo(() => {
+    return ownerLabelCounts.map(o => o.ownerId).sort().join(',');
+  }, [ownerLabelCounts]);
+
   // Fetch all owner names
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchOwnerNames = async () => {
       setIsLoading(true);
       const names: Record<string, string> = {};
 
       for (const { ownerId } of ownerLabelCounts) {
+        if (isCancelled) return;
+
         if (ownerId === 'unassigned') {
           names[ownerId] = 'Unassigned';
         } else {
           try {
             const member = await api.getMember(ownerId);
-            names[ownerId] = member.profile?.name || 'Unknown';
+            if (!isCancelled) {
+              names[ownerId] = member.profile?.name || 'Unknown';
+            }
           } catch (error) {
             console.error('Error fetching owner:', error);
-            names[ownerId] = 'Unknown';
+            if (!isCancelled) {
+              names[ownerId] = 'Unknown';
+            }
           }
         }
       }
 
-      setOwnerNames(names);
-      setIsLoading(false);
+      if (!isCancelled) {
+        setOwnerNames(names);
+        setIsLoading(false);
+      }
     };
 
     if (ownerLabelCounts.length > 0) {
@@ -731,7 +746,11 @@ const OwnerStackedChartWrapper: React.FC<{
     } else {
       setIsLoading(false);
     }
-  }, [ownerLabelCounts]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [ownerIdsKey]);
 
   if (isLoading) {
     return <div>Loading owner data...</div>;
@@ -775,28 +794,43 @@ const StatusByOwnerWrapper: React.FC<{
   const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 
+  // Create a stable key from owner IDs to use as dependency
+  const ownerIdsKey = useMemo(() => {
+    return statusByOwner.map(o => o.ownerId).sort().join(',');
+  }, [statusByOwner]);
+
   // Fetch all owner names
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchOwnerNames = async () => {
       setIsLoading(true);
       const names: Record<string, string> = {};
 
       for (const { ownerId } of statusByOwner) {
+        if (isCancelled) return;
+
         if (ownerId === 'unassigned') {
           names[ownerId] = 'Unassigned';
         } else {
           try {
             const member = await api.getMember(ownerId);
-            names[ownerId] = member.profile?.name || 'Unknown';
+            if (!isCancelled) {
+              names[ownerId] = member.profile?.name || 'Unknown';
+            }
           } catch (error) {
             console.error('Error fetching owner:', error);
-            names[ownerId] = 'Unknown';
+            if (!isCancelled) {
+              names[ownerId] = 'Unknown';
+            }
           }
         }
       }
 
-      setOwnerNames(names);
-      setIsLoading(false);
+      if (!isCancelled) {
+        setOwnerNames(names);
+        setIsLoading(false);
+      }
     };
 
     if (statusByOwner.length > 0) {
@@ -804,7 +838,11 @@ const StatusByOwnerWrapper: React.FC<{
     } else {
       setIsLoading(false);
     }
-  }, [statusByOwner]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [ownerIdsKey]);
 
   if (isLoading) {
     return <div>Loading owner data...</div>;
