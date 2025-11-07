@@ -50,6 +50,9 @@ export const StoryModal: React.FC<StoryModalProps> = ({
   const requesterName = useOwnerName(currentStory.requested_by_id);
   const priority = getPriority(currentStory);
 
+  const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
+  const isCompletedState = currentStory.workflow_state?.name && completedStates.includes(currentStory.workflow_state.name);
+
   const getPriorityColor = (priority: string): string => {
     switch (priority.toLowerCase()) {
       case 'highest':
@@ -227,6 +230,17 @@ export const StoryModal: React.FC<StoryModalProps> = ({
     }
   };
 
+  const handleIterationClick = () => {
+    if (currentStory.iteration) {
+      const iterationName = encodeURIComponent(currentStory.iteration.name);
+      window.history.pushState({}, '', `?iteration=${iterationName}`);
+      // Trigger a popstate event to update the app
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      // Close the modal
+      onClose();
+    }
+  };
+
   const handleKeyDown = (e: KeyboardEvent) => {
     // Check if the active element is an input or textarea
     const activeElement = document.activeElement;
@@ -314,10 +328,18 @@ export const StoryModal: React.FC<StoryModalProps> = ({
             <div className="meta-center">
               <span className="story-date">{formatDate(currentStory.created_at)}</span>
               {currentStory.workflow_state && (
-                <span className="story-state-chip">{currentStory.workflow_state.name}</span>
+                <span className={`story-state-chip ${isCompletedState ? 'completed' : ''}`}>
+                  {currentStory.workflow_state.name}
+                </span>
               )}
               {currentStory.iteration && (
-                <span className="story-iteration-chip">{currentStory.iteration.name}</span>
+                <span
+                  className="story-iteration-chip clickable"
+                  onClick={handleIterationClick}
+                  title="View iteration in Execution"
+                >
+                  {currentStory.iteration.name}
+                </span>
               )}
             </div>
             <div className="meta-right">

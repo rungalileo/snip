@@ -44,9 +44,10 @@ const getFirstName = (name: string): string => {
 
 interface ExecutionProps {
   onStorySelect: (story: Story, stories: Story[]) => void;
+  selectedIterationName?: string | null;
 }
 
-export const Execution: React.FC<ExecutionProps> = ({ onStorySelect }) => {
+export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIterationName }) => {
   const [iterations, setIterations] = useState<Iteration[]>([]);
   const [selectedIterationId, setSelectedIterationId] = useState<number | null>(null);
   const [stories, setStories] = useState<Story[]>([]);
@@ -57,10 +58,12 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect }) => {
   const [modalStories, setModalStories] = useState<Story[]>([]);
   const [modalTitle, setModalTitle] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [copiedDeepLink, setCopiedDeepLink] = useState(false);
+  const [showShareTooltip, setShowShareTooltip] = useState(false);
 
   useEffect(() => {
     loadIterations();
-  }, []);
+  }, [selectedIterationName]);
 
   useEffect(() => {
     if (selectedIterationId) {
@@ -111,17 +114,31 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect }) => {
 
       setIterations(sortedIterations);
 
-      // Auto-select the current iteration (ongoing) if available, otherwise select the first one
+      // Auto-select iteration based on URL parameter or default behavior
       if (sortedIterations.length > 0) {
-        // Find the current ongoing iteration
-        const currentIteration = sortedIterations.find(iteration => {
-          const startDate = new Date(iteration.start_date);
-          const endDate = new Date(iteration.end_date);
-          return now >= startDate && now <= endDate;
-        });
+        let iterationToSelect = null;
 
-        // Select current iteration if found, otherwise select the first (most recent)
-        setSelectedIterationId(currentIteration ? currentIteration.id : sortedIterations[0].id);
+        // If iteration name is provided in URL, find and select it
+        if (selectedIterationName) {
+          iterationToSelect = sortedIterations.find(
+            iteration => iteration.name === selectedIterationName
+          );
+        }
+
+        // If no URL parameter or iteration not found, use default auto-select logic
+        if (!iterationToSelect) {
+          // Find the current ongoing iteration
+          const currentIteration = sortedIterations.find(iteration => {
+            const startDate = new Date(iteration.start_date);
+            const endDate = new Date(iteration.end_date);
+            return now >= startDate && now <= endDate;
+          });
+
+          // Select current iteration if found, otherwise select the first (most recent)
+          iterationToSelect = currentIteration || sortedIterations[0];
+        }
+
+        setSelectedIterationId(iterationToSelect.id);
       }
     } catch (err) {
       setError('Failed to load iterations');
@@ -476,6 +493,16 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect }) => {
     }
   };
 
+  const handleCopyDeepLink = () => {
+    if (selectedIteration) {
+      const iterationName = encodeURIComponent(selectedIteration.name);
+      const url = `${window.location.origin}/iteration/${iterationName}`;
+      navigator.clipboard.writeText(url);
+      setCopiedDeepLink(true);
+      setTimeout(() => setCopiedDeepLink(false), 2000);
+    }
+  };
+
   return (
     <div className="execution-view">
       <div className="execution-header">
@@ -508,18 +535,45 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect }) => {
             </svg>
           </button>
         </div>
-        <button
-          className="refresh-button"
-          onClick={handleRefresh}
-          disabled={!selectedIterationId || loadingStories}
-          title="Refresh stories"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <polyline points="1 20 1 14 7 14"></polyline>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-          </svg>
-        </button>
+        <div className="header-actions">
+          <div
+            className="share-button-wrapper"
+            onMouseEnter={() => setShowShareTooltip(true)}
+            onMouseLeave={() => setShowShareTooltip(false)}
+          >
+            <button
+              className="share-button"
+              onClick={handleCopyDeepLink}
+              disabled={!selectedIteration}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3"></circle>
+                <circle cx="6" cy="12" r="3"></circle>
+                <circle cx="18" cy="19" r="3"></circle>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+              </svg>
+              <span>Share</span>
+            </button>
+            {showShareTooltip && (
+              <div className="share-tooltip">
+                {copiedDeepLink ? "Link copied!" : "Copy link"}
+              </div>
+            )}
+          </div>
+          <button
+            className="refresh-button"
+            onClick={handleRefresh}
+            disabled={!selectedIterationId || loadingStories}
+            title="Refresh stories"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+        </div>
       </div>
 
       {selectedIteration && (

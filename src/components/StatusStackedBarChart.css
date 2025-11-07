@@ -5,7 +5,7 @@
   padding: 24px;
   margin-bottom: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  overflow: visible;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -22,11 +22,11 @@
   display: flex;
   gap: 8px;
   align-items: stretch;
-  overflow: hidden;
+  overflow: visible;
   padding-bottom: 8px;
-  margin: 0 16px;
+  padding-left: 4px;
   position: relative;
-  width: calc(100% - 32px);
+  width: 100%;
 }
 
 /* Custom scrollbar styling */
@@ -53,15 +53,12 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  width: 35px;
+  width: 40px;
   padding-top: 20px;
   padding-bottom: 40px;
   flex-shrink: 0;
-  position: sticky;
-  left: -16px;
   background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
   z-index: 10;
-  margin-right: -8px;
 }
 
 .status-y-label {
@@ -110,10 +107,8 @@
   z-index: 1;
   padding-top: 20px;
   padding-left: 10px;
-  padding-right: 16px;
+  padding-right: 10px;
   border-left: 1px solid #333;
-  overflow: hidden;
-  width: 100%;
 }
 
 .status-bar-item {
@@ -166,9 +161,8 @@
   border-top: 1px solid #333;
   padding-top: 10px;
   padding-left: 10px;
-  padding-right: 16px;
+  padding-right: 10px;
   margin-top: 0;
-  width: 100%;
 }
 
 .status-x-label-item {

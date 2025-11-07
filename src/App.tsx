@@ -19,6 +19,41 @@ function App() {
   const [isBookmarksModalOpen, setIsBookmarksModalOpen] = useState(false);
   const [bookmarkedStories, setBookmarkedStories] = useState<Story[]>([]);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<number>>(new Set());
+  const [selectedIterationName, setSelectedIterationName] = useState<string | null>(null);
+
+  // Handle URL changes and read iteration parameter from path
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      const searchParams = new URLSearchParams(window.location.search);
+
+      // Match /iteration/xxx pattern (new format)
+      const match = path.match(/^\/iteration\/([^/]+)$/);
+      if (match) {
+        const iterationName = decodeURIComponent(match[1]);
+        setMainView('execution');
+        setSelectedIterationName(iterationName);
+      }
+      // Backwards compatibility: support old query param format
+      else if (searchParams.has('iteration')) {
+        const iterationName = searchParams.get('iteration');
+        if (iterationName) {
+          setMainView('execution');
+          setSelectedIterationName(decodeURIComponent(iterationName));
+          // Redirect to new URL format
+          window.history.replaceState({}, '', `/iteration/${encodeURIComponent(iterationName)}`);
+        }
+      } else {
+        setSelectedIterationName(null);
+      }
+    };
+
+    // Check initial URL
+    handlePopState();
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const handleEpicSelect = (epic: Epic) => {
     setSelectedEpic(epic);
@@ -52,6 +87,9 @@ function App() {
     setIsDrawerOpen(false);
     setSelectedStory(null);
     setAllStories([]);
+    setSelectedIterationName(null);
+    // Clear URL parameters
+    window.history.pushState({}, '', window.location.pathname);
   };
 
   const handleStorySelect = (story: Story, stories: Story[]) => {
@@ -132,7 +170,10 @@ function App() {
         )}
 
         {mainView === 'execution' && (
-          <Execution onStorySelect={handleStorySelect} />
+          <Execution
+            onStorySelect={handleStorySelect}
+            selectedIterationName={selectedIterationName}
+          />
         )}
 
         {/* Drawer overlay */}
