@@ -347,6 +347,20 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     }).filter(item => item.totalCount > 0); // Only show categories with stories
   }, [stories]);
 
+  // Calculate overall percentages across all categories
+  const categoryOverallStats = useMemo(() => {
+    const totalCompleted = statusByCategory.reduce((sum, item) => sum + item.completedCount, 0);
+    const totalInMotion = statusByCategory.reduce((sum, item) => sum + item.inMotionCount, 0);
+    const totalNotStarted = statusByCategory.reduce((sum, item) => sum + item.notStartedCount, 0);
+    const grandTotal = totalCompleted + totalInMotion + totalNotStarted;
+
+    return {
+      completedPercent: grandTotal > 0 ? Math.round((totalCompleted / grandTotal) * 100) : 0,
+      inMotionPercent: grandTotal > 0 ? Math.round((totalInMotion / grandTotal) * 100) : 0,
+      notStartedPercent: grandTotal > 0 ? Math.round((totalNotStarted / grandTotal) * 100) : 0,
+    };
+  }, [statusByCategory]);
+
   // Calculate label counts per owner
   const ownerLabelCounts = useMemo(() => {
     const ownerData: Record<string, Record<string, number>> = {};
@@ -644,6 +658,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
                     <StatusStackedBarChart
                       data={statusByCategory}
                       title="Status by Category"
+                      overallStats={categoryOverallStats}
                     />
                   </div>
                 )}

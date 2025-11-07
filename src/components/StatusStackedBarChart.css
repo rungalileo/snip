@@ -11,11 +11,59 @@
 }
 
 .status-chart-title {
-  margin: 0 0 30px 0;
+  margin: 0 0 16px 0;
   font-size: 18px;
   font-weight: 600;
   color: #1a1a1a;
   text-align: center;
+}
+
+.status-overall-chips {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.status-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.status-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.status-chip-completed {
+  background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%);
+  color: white;
+}
+
+.status-chip-in-motion {
+  background: linear-gradient(135deg, #ffa726 0%, #fb8c00 100%);
+  color: white;
+}
+
+.status-chip-not-started {
+  background: linear-gradient(135deg, #ef5350 0%, #e53935 100%);
+  color: white;
+}
+
+.status-chip-label {
+  opacity: 0.95;
+}
+
+.status-chip-value {
+  font-weight: 700;
+  font-size: 14px;
 }
 
 .status-chart-wrapper {

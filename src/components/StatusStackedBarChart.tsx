@@ -15,6 +15,11 @@ interface StatusStackedBarChartProps {
   data: StatusStackedBarData[];
   title?: string;
   onBarClick?: (label: string, status: 'completed' | 'inMotion' | 'notStarted') => void;
+  overallStats?: {
+    completedPercent: number;
+    inMotionPercent: number;
+    notStartedPercent: number;
+  };
 }
 
 // Color palette for status types
@@ -24,7 +29,7 @@ const STATUS_COLORS = {
   notStarted: 'linear-gradient(180deg, #ef5350 0%, #e53935 100%)', // Red
 };
 
-export const StatusStackedBarChart: React.FC<StatusStackedBarChartProps> = ({ data, title, onBarClick }) => {
+export const StatusStackedBarChart: React.FC<StatusStackedBarChartProps> = ({ data, title, onBarClick, overallStats }) => {
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -40,6 +45,23 @@ export const StatusStackedBarChart: React.FC<StatusStackedBarChartProps> = ({ da
   return (
     <div className="status-stacked-bar-chart">
       {title && <h3 className="status-chart-title">{title}</h3>}
+
+      {overallStats && (
+        <div className="status-overall-chips">
+          <div className="status-chip status-chip-completed">
+            <span className="status-chip-label">Completed</span>
+            <span className="status-chip-value">{overallStats.completedPercent}%</span>
+          </div>
+          <div className="status-chip status-chip-in-motion">
+            <span className="status-chip-label">In Motion</span>
+            <span className="status-chip-value">{overallStats.inMotionPercent}%</span>
+          </div>
+          <div className="status-chip status-chip-not-started">
+            <span className="status-chip-label">Not Started</span>
+            <span className="status-chip-value">{overallStats.notStartedPercent}%</span>
+          </div>
+        </div>
+      )}
 
       <div className="status-chart-wrapper">
         {/* Y-axis labels */}
