@@ -18,6 +18,8 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
   onStorySelect,
   bookmarkedIds,
 }) => {
+  const [copiedLinks, setCopiedLinks] = React.useState(false);
+
   // Handle escape key to close modal
   React.useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -44,14 +46,30 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
     }
   };
 
+  const handleCopyLinks = () => {
+    const allLinks = stories.map(story => story.app_url).join('\n');
+    navigator.clipboard.writeText(allLinks);
+    setCopiedLinks(true);
+    setTimeout(() => setCopiedLinks(false), 2000);
+  };
+
   return (
     <div className="stories-table-modal-backdrop" onClick={handleBackdropClick}>
       <div className="stories-table-modal">
         <div className="stories-table-modal-header">
           <h2>{title}</h2>
-          <button className="stories-table-modal-close" onClick={onClose}>
-            ×
-          </button>
+          <div className="stories-table-modal-header-actions">
+            <button
+              className="copy-links-btn"
+              onClick={handleCopyLinks}
+              disabled={stories.length === 0}
+            >
+              {copiedLinks ? '✓ Copied' : 'Copy Links'}
+            </button>
+            <button className="stories-table-modal-close" onClick={onClose}>
+              ×
+            </button>
+          </div>
         </div>
         <div className="stories-table-modal-content">
           {stories.length === 0 ? (

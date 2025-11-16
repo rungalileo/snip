@@ -41,6 +41,11 @@ export const api = {
     return response.data;
   },
 
+  async removeLabelFromStory(storyId: number, labelId: number): Promise<Story> {
+    const response = await axios.delete(`${API_BASE}/stories/${storyId}/labels/${labelId}`);
+    return response.data;
+  },
+
   async updateStoryPriority(storyId: number, priority: string): Promise<Story> {
     const response = await axios.put(`${API_BASE}/stories/${storyId}/priority`, {
       priority,

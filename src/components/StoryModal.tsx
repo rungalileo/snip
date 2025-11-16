@@ -31,6 +31,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({
 }) => {
   const [currentStory, setCurrentStory] = useState(story);
   const [addingLabel, setAddingLabel] = useState<string | null>(null);
+  const [removingLabel, setRemovingLabel] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPriority, setSelectedPriority] = useState<string>('');
   const [changingPriority, setChangingPriority] = useState(false);
@@ -43,6 +44,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({
   const [showLinkTooltip, setShowLinkTooltip] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarking, setBookmarking] = useState(false);
+  const [copiedAllLinks, setCopiedAllLinks] = useState(false);
 
   const currentIndex = allStories.findIndex((s) => s.id === currentStory.id);
   const ownerId = currentStory.owner_ids && currentStory.owner_ids.length > 0 ? currentStory.owner_ids[0] : undefined;
@@ -133,6 +135,20 @@ export const StoryModal: React.FC<StoryModalProps> = ({
     return currentStory.labels?.some((label) => label.name === labelName);
   };
 
+  const handleRemoveLabel = async (labelId: number) => {
+    try {
+      setRemovingLabel(labelId);
+      const updatedStory = await api.removeLabelFromStory(currentStory.id, labelId);
+      setCurrentStory(updatedStory);
+    } catch (error: any) {
+      console.error('Failed to remove label:', error);
+      const errorMsg = error.response?.data?.details || error.message || 'Unknown error';
+      alert(`Failed to remove label. Error: ${errorMsg}`);
+    } finally {
+      setRemovingLabel(null);
+    }
+  };
+
   const handleChangePriority = async () => {
     if (!selectedPriority || selectedPriority === priority) {
       return;
@@ -186,11 +202,23 @@ export const StoryModal: React.FC<StoryModalProps> = ({
   };
 
   const formatDescription = (description: string) => {
+    let formatted = description;
+
     // Replace URLs with "Link" anchors
     const urlRegex = /(https?:\/\/[^\s<>"]+)/g;
-    const formatted = description.replace(urlRegex, (url) => {
+    formatted = formatted.replace(urlRegex, (url) => {
       return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="description-link">Link</a>`;
     });
+
+    // Replace ```code blocks``` with styled code blocks (must be done before single backticks)
+    formatted = formatted.replace(/```([\s\S]+?)```/g, '<pre class="code-block"><code>$1</code></pre>');
+
+    // Replace **text** with bold
+    formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // Replace `text` with inline code chip
+    formatted = formatted.replace(/`(.+?)`/g, '<span class="inline-code">$1</span>');
+
     return formatted;
   };
 
@@ -228,6 +256,13 @@ export const StoryModal: React.FC<StoryModalProps> = ({
     } finally {
       setBookmarking(false);
     }
+  };
+
+  const handleCopyAllLinks = () => {
+    const allLinks = allStories.map(story => story.app_url).join('\n');
+    navigator.clipboard.writeText(allLinks);
+    setCopiedAllLinks(true);
+    setTimeout(() => setCopiedAllLinks(false), 2000);
   };
 
   const handleIterationClick = () => {
@@ -303,6 +338,13 @@ export const StoryModal: React.FC<StoryModalProps> = ({
                 {priority}
               </span>
             )}
+            <button
+              onClick={handleCopyAllLinks}
+              className="copy-all-links-btn"
+              title="Copy all story links"
+            >
+              {copiedAllLinks ? '✓ Copied' : 'Copy Links'}
+            </button>
             <button
               onClick={handleToggleBookmark}
               className={`bookmark-btn ${isBookmarked ? 'bookmarked' : ''}`}
@@ -420,6 +462,14 @@ export const StoryModal: React.FC<StoryModalProps> = ({
                       className="existing-label"
                     >
                       {label.name}
+                      <button
+                        className="label-delete-btn"
+                        onClick={() => handleRemoveLabel(label.id)}
+                        disabled={removingLabel === label.id}
+                        title="Remove label"
+                      >
+                        ×
+                      </button>
                     </span>
                   ))}
                 </div>

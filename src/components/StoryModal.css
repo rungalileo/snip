@@ -131,6 +131,29 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
+.copy-all-links-btn {
+  padding: 8px 16px;
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.copy-all-links-btn:hover {
+  background: #1565c0;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(25, 118, 210, 0.3);
+}
+
+.copy-all-links-btn:active {
+  transform: translateY(0);
+}
+
 .bookmark-btn {
   width: 36px;
   height: 36px;
@@ -479,6 +502,34 @@
   text-decoration: underline;
 }
 
+.story-description .inline-code {
+  background: #f5f5f5;
+  color: #e91e63;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9em;
+  border: 1px solid #e0e0e0;
+}
+
+.story-description .code-block {
+  background: #2d2d2d;
+  color: #f8f8f2;
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 12px 0;
+  border: 1px solid #444;
+}
+
+.story-description .code-block code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre;
+  display: block;
+}
+
 .no-description {
   color: #999;
   font-style: italic;
@@ -524,6 +575,39 @@
   border: 1px solid #333;
   font-size: 13px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.label-delete-btn {
+  padding: 0;
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.1);
+  color: #666;
+  border: none;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.label-delete-btn:hover:not(:disabled) {
+  background: #e53935;
+  color: white;
+  transform: scale(1.1);
+}
+
+.label-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .label-chips {

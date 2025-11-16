@@ -521,6 +521,48 @@ app.post('/api/stories/:storyId/labels', async (req, res) => {
   }
 });
 
+// Remove label from a story
+app.delete('/api/stories/:storyId/labels/:labelId', async (req, res) => {
+  try {
+    const { storyId, labelId } = req.params;
+
+    console.log(`Removing label ${labelId} from story ${storyId}`);
+
+    // First, get the current story to retrieve existing labels
+    const storyResponse = await axios.get(`${SHORTCUT_API_BASE}/stories/${storyId}`, {
+      headers: shortcutHeaders,
+    });
+
+    const story = storyResponse.data;
+    const existingLabels = story.labels || [];
+
+    console.log('Existing labels:', existingLabels.map((l: any) => `${l.id}:${l.name}`));
+
+    // Filter out the label to remove
+    const updatedLabels = existingLabels
+      .filter((label: any) => label.id !== parseInt(labelId))
+      .map((label: any) => ({ name: label.name }));
+
+    console.log('Updating with labels:', updatedLabels);
+
+    // Update the story with remaining labels
+    const updateResponse = await axios.put(
+      `${SHORTCUT_API_BASE}/stories/${storyId}`,
+      { labels: updatedLabels },
+      { headers: shortcutHeaders }
+    );
+
+    console.log('Label removed successfully');
+    res.json(updateResponse.data);
+  } catch (error: any) {
+    console.error('Error removing label:', error.response?.data || error.message);
+    res.status(500).json({
+      error: 'Failed to remove label',
+      details: error.response?.data || error.message
+    });
+  }
+});
+
 // ===== BOOKMARK ENDPOINTS =====
 
 // Get all bookmarked stories
