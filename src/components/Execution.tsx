@@ -41,6 +41,33 @@ const getFirstName = (name: string): string => {
   return words[0];
 };
 
+// Helper to normalize team names - merge observability variants
+const normalizeTeamName = (teamName: string): string => {
+  const lowerName = teamName.toLowerCase().trim();
+  // Match any variation of observability (with/without spaces, hyphens, etc.)
+  if (lowerName.startsWith('observability')) {
+    return 'Observability';
+  }
+  return teamName;
+};
+
+// Helper to get team sort order
+const getTeamSortOrder = (teamName: string): number => {
+  const lowerName = teamName.toLowerCase().trim();
+
+  // Define team priority order
+  if (lowerName.includes('metrics')) return 0;
+  if (lowerName.startsWith('observability')) return 1;
+  if (lowerName.includes('integration')) return 2;
+  if (lowerName.includes('api') || lowerName.includes('sdk')) return 3;
+  if (lowerName.includes('developer') && lowerName.includes('onboarding')) return 4;
+  if (lowerName.includes('agent') && lowerName.includes('reliability')) return 5;
+  if (lowerName === 'unassigned') return 1000; // Always last
+
+  // All other teams
+  return 100;
+};
+
 interface ExecutionProps {
   onStorySelect: (story: Story, stories: Story[]) => void;
   selectedIterationName?: string | null;
@@ -60,6 +87,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   const [copiedDeepLink, setCopiedDeepLink] = useState(false);
   const [showShareTooltip, setShowShareTooltip] = useState(false);
   const [includeAllIterations, setIncludeAllIterations] = useState(false);
+  const [ticketsViewBy, setTicketsViewBy] = useState<'category' | 'owner' | 'team'>('team');
+  const [statusViewBy, setStatusViewBy] = useState<'category' | 'owner' | 'team'>('team');
 
   useEffect(() => {
     loadIterations();
@@ -244,6 +273,58 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     // Set modal data
     const statusLabel = status === 'completed' ? 'Completed' : status === 'inMotion' ? 'In Motion' : 'Not Started';
     setModalTitle(`${ownerName} - ${statusLabel} (${filteredStories.length} stories)`);
+    setModalStories(filteredStories);
+    setIsModalOpen(true);
+  };
+
+  const handleTeamBarClick = (teamId: string, label: string) => {
+    // teamId might be comma-separated for merged teams
+    const teamIds = teamId.split(',');
+
+    // Filter stories by team(s) and label
+    const filteredStories = stories.filter(story => {
+      const storyTeamId = story.group_id || 'unassigned';
+      if (!teamIds.includes(storyTeamId)) return false;
+
+      // Special handling for "OTHER" category
+      if (label === 'OTHER') {
+        const hasMatchingLabel = story.labels?.some(l => LABEL_CATEGORIES.includes(l.name));
+        return !hasMatchingLabel;
+      } else {
+        return story.labels?.some(l => l.name === label);
+      }
+    });
+
+    setModalTitle(`${label} (${filteredStories.length} stories)`);
+    setModalStories(filteredStories);
+    setIsModalOpen(true);
+  };
+
+  const handleStatusByTeamClick = (teamId: string, teamName: string, status: 'completed' | 'inMotion' | 'notStarted') => {
+    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification'];
+    const inMotionStates = ['In Development', 'In Review'];
+
+    // teamId might be comma-separated for merged teams
+    const teamIds = teamId.split(',');
+
+    // Filter stories by team(s) and status
+    const filteredStories = stories.filter(story => {
+      // Check if story belongs to this team
+      const storyTeamId = story.group_id || 'unassigned';
+      if (!teamIds.includes(storyTeamId)) return false;
+
+      // Check if story matches the status
+      const stateName = story.workflow_state?.name || '';
+      if (status === 'completed' && completedStates.includes(stateName)) return true;
+      if (status === 'inMotion' && inMotionStates.includes(stateName)) return true;
+      if (status === 'notStarted' && !completedStates.includes(stateName) && !inMotionStates.includes(stateName)) return true;
+
+      return false;
+    });
+
+    // Set modal data
+    const statusLabel = status === 'completed' ? 'Completed' : status === 'inMotion' ? 'In Motion' : 'Not Started';
+    setModalTitle(`${teamName} - ${statusLabel} (${filteredStories.length} stories)`);
     setModalStories(filteredStories);
     setIsModalOpen(true);
   };
@@ -444,14 +525,94 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     }); // Don't filter - use same owners as ownerLabelCounts
   }, [stories, ownerLabelCounts]);
 
+  // Calculate label counts per team
+  const teamLabelCounts = useMemo(() => {
+    const teamData: Record<string, Record<string, number>> = {};
+
+    stories.forEach(story => {
+      const teamId = story.group_id || 'unassigned';
+
+      if (!teamData[teamId]) {
+        teamData[teamId] = {};
+        LABEL_CATEGORIES_WITH_OTHER.forEach(label => {
+          teamData[teamId][label] = 0;
+        });
+      }
+
+      // Check if story has any labels in our categories
+      let hasMatchingLabel = false;
+      if (story.labels && story.labels.length > 0) {
+        story.labels.forEach(label => {
+          if (LABEL_CATEGORIES.includes(label.name)) {
+            teamData[teamId][label.name] = (teamData[teamId][label.name] || 0) + 1;
+            hasMatchingLabel = true;
+          }
+        });
+      }
+
+      // If no matching label found, count as "OTHER"
+      if (!hasMatchingLabel) {
+        teamData[teamId]['OTHER'] = (teamData[teamId]['OTHER'] || 0) + 1;
+      }
+    });
+
+    // Convert to array format for rendering
+    return Object.entries(teamData).map(([teamId, counts]) => ({
+      teamId,
+      data: LABEL_CATEGORIES_WITH_OTHER.map(label => ({
+        label,
+        count: counts[label] || 0,
+      })),
+    }));
+  }, [stories]);
+
+  // Calculate status breakdown for each team (use same team list as teamLabelCounts)
+  const statusByTeam = useMemo(() => {
+    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification'];
+    const inMotionStates = ['In Development', 'In Review'];
+
+    // Use the same team IDs from teamLabelCounts to ensure consistency
+    return teamLabelCounts.map(({ teamId }) => {
+      // Filter stories for this team
+      const teamStories = stories.filter(story => {
+        const storyTeamId = story.group_id || 'unassigned';
+        return storyTeamId === teamId;
+      });
+
+      let completedCount = 0;
+      let inMotionCount = 0;
+      let notStartedCount = 0;
+
+      teamStories.forEach(story => {
+        const stateName = story.workflow_state?.name || '';
+        if (completedStates.includes(stateName)) {
+          completedCount++;
+        } else if (inMotionStates.includes(stateName)) {
+          inMotionCount++;
+        } else {
+          notStartedCount++;
+        }
+      });
+
+      return {
+        teamId,
+        completedCount,
+        inMotionCount,
+        notStartedCount,
+        totalCount: teamStories.length,
+      };
+    });
+  }, [stories, teamLabelCounts]);
+
   // Get max count across all charts for consistent scale
   const maxCount = useMemo(() => {
     const allCounts = [
       ...overallLabelCounts.map(d => d.count),
       ...ownerLabelCounts.flatMap(owner => owner.data.map(d => d.count)),
+      ...teamLabelCounts.flatMap(team => team.data.map(d => d.count)),
     ];
     return Math.max(...allCounts, 1);
-  }, [overallLabelCounts, ownerLabelCounts]);
+  }, [overallLabelCounts, ownerLabelCounts, teamLabelCounts]);
 
   // Calculate progress percentages based on workflow states
   const progressStats = useMemo(() => {
@@ -638,50 +799,95 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
           ) : (
             <>
               <div className="charts-side-by-side">
-                {/* Overall iteration chart */}
-                <div className="overall-chart-container">
-                  <BarChart
-                    data={overallLabelCounts}
-                    title="Tickets by Category"
-                    maxCount={maxCount}
-                    onBarClick={(label) => handleBarClick(label)}
-                    categoryPercentages={categoryPercentages}
-                  />
+                {/* Status Chart with Category/Owner selector */}
+                <div className="chart-with-selector">
+                  <div className="chart-header">
+                    <h3 className="chart-section-title">Status</h3>
+                    <select
+                      className="chart-selector"
+                      value={statusViewBy}
+                      onChange={(e) => setStatusViewBy(e.target.value as 'category' | 'owner' | 'team')}
+                    >
+                      <option value="category">By Category</option>
+                      <option value="owner">By Owner</option>
+                      <option value="team">By Team</option>
+                    </select>
+                  </div>
+                  {statusViewBy === 'category' ? (
+                    statusByCategory.length > 0 && (
+                      <div className="overall-chart-container">
+                        <StatusStackedBarChart
+                          data={statusByCategory}
+                          title=""
+                          overallStats={categoryOverallStats}
+                        />
+                      </div>
+                    )
+                  ) : statusViewBy === 'owner' ? (
+                    statusByOwner.length > 0 && (
+                      <div className="owner-stacked-section">
+                        <StatusByOwnerWrapper
+                          statusByOwner={statusByOwner}
+                          onBarClick={handleStatusByOwnerClick}
+                        />
+                      </div>
+                    )
+                  ) : (
+                    statusByTeam.length > 0 && (
+                      <div className="owner-stacked-section">
+                        <StatusByTeamWrapper
+                          statusByTeam={statusByTeam}
+                          onBarClick={handleStatusByTeamClick}
+                        />
+                      </div>
+                    )
+                  )}
                 </div>
 
-                {/* Owner stacked chart */}
-                {ownerLabelCounts.length > 0 && (
-                  <div className="owner-stacked-section">
-                    <OwnerStackedChartWrapper
-                      ownerLabelCounts={ownerLabelCounts}
-                      onBarClick={handleStackedBarClick}
-                    />
+                {/* Tickets Chart with Category/Owner selector */}
+                <div className="chart-with-selector">
+                  <div className="chart-header">
+                    <h3 className="chart-section-title">Tickets</h3>
+                    <select
+                      className="chart-selector"
+                      value={ticketsViewBy}
+                      onChange={(e) => setTicketsViewBy(e.target.value as 'category' | 'owner' | 'team')}
+                    >
+                      <option value="category">By Category</option>
+                      <option value="owner">By Owner</option>
+                      <option value="team">By Team</option>
+                    </select>
                   </div>
-                )}
-              </div>
-
-              {/* Status breakdown charts */}
-              <div className="charts-side-by-side">
-                {/* Status by Category */}
-                {statusByCategory.length > 0 && (
-                  <div className="overall-chart-container">
-                    <StatusStackedBarChart
-                      data={statusByCategory}
-                      title="Status by Category"
-                      overallStats={categoryOverallStats}
-                    />
-                  </div>
-                )}
-
-                {/* Status by Owner */}
-                {statusByOwner.length > 0 && (
-                  <div className="owner-stacked-section">
-                    <StatusByOwnerWrapper
-                      statusByOwner={statusByOwner}
-                      onBarClick={handleStatusByOwnerClick}
-                    />
-                  </div>
-                )}
+                  {ticketsViewBy === 'category' ? (
+                    <div className="overall-chart-container">
+                      <BarChart
+                        data={overallLabelCounts}
+                        title=""
+                        maxCount={maxCount}
+                        onBarClick={(label) => handleBarClick(label)}
+                        categoryPercentages={categoryPercentages}
+                      />
+                    </div>
+                  ) : ticketsViewBy === 'owner' ? (
+                    ownerLabelCounts.length > 0 && (
+                      <div className="owner-stacked-section">
+                        <OwnerStackedChartWrapper
+                          ownerLabelCounts={ownerLabelCounts}
+                          onBarClick={handleStackedBarClick}
+                        />
+                      </div>
+                    )
+                  ) : (
+                    teamLabelCounts.length > 0 && (
+                      <div className="owner-stacked-section">
+                        <TeamStackedChartWrapper
+                          teamLabelCounts={teamLabelCounts}
+                          onBarClick={handleTeamBarClick}
+                        />
+                      </div>
+                    )
+                  )}
+                </div>
               </div>
             </>
           )}
@@ -886,6 +1092,263 @@ const StatusByOwnerWrapper: React.FC<{
     <StatusStackedBarChart
       data={statusData}
       title="Status by Owner"
+      onBarClick={handleClick}
+    />
+  );
+};
+
+// Component to display stacked bar chart with team names
+const TeamStackedChartWrapper: React.FC<{
+  teamLabelCounts: Array<{
+    teamId: string;
+    data: { label: string; count: number }[];
+  }>;
+  onBarClick: (teamId: string, label: string) => void;
+}> = ({ teamLabelCounts, onBarClick }) => {
+  const [teamNames, setTeamNames] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Create a stable key from team IDs to use as dependency
+  const teamIdsKey = useMemo(() => {
+    return teamLabelCounts.map(t => t.teamId).sort().join(',');
+  }, [teamLabelCounts]);
+
+  // Fetch all team names
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchTeamNames = async () => {
+      setIsLoading(true);
+      const names: Record<string, string> = {};
+
+      for (const { teamId } of teamLabelCounts) {
+        if (isCancelled) return;
+
+        if (teamId === 'unassigned') {
+          names[teamId] = 'Unassigned';
+        } else {
+          try {
+            const group = await api.getGroup(teamId);
+            if (!isCancelled) {
+              names[teamId] = group.name || 'Unknown';
+            }
+          } catch (error) {
+            console.error('Error fetching team:', error);
+            if (!isCancelled) {
+              names[teamId] = 'Unknown';
+            }
+          }
+        }
+      }
+
+      if (!isCancelled) {
+        setTeamNames(names);
+        setIsLoading(false);
+      }
+    };
+
+    if (teamLabelCounts.length > 0) {
+      fetchTeamNames();
+    } else {
+      setIsLoading(false);
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [teamIdsKey]);
+
+  if (isLoading) {
+    return <div>Loading team data...</div>;
+  }
+
+  // Transform data for stacked bar chart and merge observability variants
+  const mergedDataMap = new Map<string, {
+    teamIds: string[];
+    teamName: string;
+    labelCounts: { label: string; count: number }[];
+    totalCount: number;
+  }>();
+
+  teamLabelCounts.forEach(({ teamId, data }) => {
+    const teamName = teamNames[teamId] || 'Unknown';
+    const normalizedName = normalizeTeamName(teamName);
+
+    if (mergedDataMap.has(normalizedName)) {
+      const existing = mergedDataMap.get(normalizedName)!;
+      existing.teamIds.push(teamId);
+      // Merge label counts
+      data.forEach((item, index) => {
+        existing.labelCounts[index].count += item.count;
+      });
+      existing.totalCount += data.reduce((sum, item) => sum + item.count, 0);
+    } else {
+      mergedDataMap.set(normalizedName, {
+        teamIds: [teamId],
+        teamName: normalizedName,
+        labelCounts: data.map(item => ({ ...item })),
+        totalCount: data.reduce((sum, item) => sum + item.count, 0),
+      });
+    }
+  });
+
+  const stackedData = Array.from(mergedDataMap.values())
+    .map(({ teamIds, teamName, labelCounts, totalCount }) => {
+      return {
+        ownerId: teamIds.join(','), // Store all team IDs for click handling
+        ownerName: teamName,
+        initials: teamName, // Use full team name instead of initials
+        labelCounts,
+        totalCount,
+      };
+    })
+    .sort((a, b) => {
+      const orderA = getTeamSortOrder(a.ownerName);
+      const orderB = getTeamSortOrder(b.ownerName);
+      if (orderA !== orderB) return orderA - orderB;
+      return a.ownerName.localeCompare(b.ownerName);
+    });
+
+  return (
+    <StackedBarChart
+      data={stackedData}
+      title="Tickets by Team"
+      onBarClick={onBarClick}
+    />
+  );
+};
+
+// Component to display status breakdown by team
+const StatusByTeamWrapper: React.FC<{
+  statusByTeam: Array<{
+    teamId: string;
+    completedCount: number;
+    inMotionCount: number;
+    notStartedCount: number;
+    totalCount: number;
+  }>;
+  onBarClick: (teamId: string, teamName: string, status: 'completed' | 'inMotion' | 'notStarted') => void;
+}> = ({ statusByTeam, onBarClick }) => {
+  const [teamNames, setTeamNames] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Create a stable key from team IDs to use as dependency
+  const teamIdsKey = useMemo(() => {
+    return statusByTeam.map(t => t.teamId).sort().join(',');
+  }, [statusByTeam]);
+
+  // Fetch all team names
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchTeamNames = async () => {
+      setIsLoading(true);
+      const names: Record<string, string> = {};
+
+      for (const { teamId } of statusByTeam) {
+        if (isCancelled) return;
+
+        if (teamId === 'unassigned') {
+          names[teamId] = 'Unassigned';
+        } else {
+          try {
+            const group = await api.getGroup(teamId);
+            if (!isCancelled) {
+              names[teamId] = group.name || 'Unknown';
+            }
+          } catch (error) {
+            console.error('Error fetching team:', error);
+            if (!isCancelled) {
+              names[teamId] = 'Unknown';
+            }
+          }
+        }
+      }
+
+      if (!isCancelled) {
+        setTeamNames(names);
+        setIsLoading(false);
+      }
+    };
+
+    if (statusByTeam.length > 0) {
+      fetchTeamNames();
+    } else {
+      setIsLoading(false);
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [teamIdsKey]);
+
+  if (isLoading) {
+    return <div>Loading team data...</div>;
+  }
+
+  // Transform data for status stacked bar chart and merge observability variants
+  const mergedStatusMap = new Map<string, {
+    teamIds: string[];
+    teamName: string;
+    completedCount: number;
+    inMotionCount: number;
+    notStartedCount: number;
+    totalCount: number;
+  }>();
+
+  statusByTeam.forEach(({ teamId, completedCount, inMotionCount, notStartedCount, totalCount }) => {
+    const teamName = teamNames[teamId] || 'Unknown';
+    const normalizedName = normalizeTeamName(teamName);
+
+    if (mergedStatusMap.has(normalizedName)) {
+      const existing = mergedStatusMap.get(normalizedName)!;
+      existing.teamIds.push(teamId);
+      existing.completedCount += completedCount;
+      existing.inMotionCount += inMotionCount;
+      existing.notStartedCount += notStartedCount;
+      existing.totalCount += totalCount;
+    } else {
+      mergedStatusMap.set(normalizedName, {
+        teamIds: [teamId],
+        teamName: normalizedName,
+        completedCount,
+        inMotionCount,
+        notStartedCount,
+        totalCount,
+      });
+    }
+  });
+
+  const statusData = Array.from(mergedStatusMap.values())
+    .map(({ teamIds, teamName, completedCount, inMotionCount, notStartedCount, totalCount }) => {
+      return {
+        label: teamName, // Use full team name instead of initials
+        fullName: teamName,
+        ownerId: teamIds.join(','), // Store all team IDs for click handling
+        completedCount,
+        inMotionCount,
+        notStartedCount,
+        totalCount,
+      };
+    })
+    .sort((a, b) => {
+      const orderA = getTeamSortOrder(a.fullName);
+      const orderB = getTeamSortOrder(b.fullName);
+      if (orderA !== orderB) return orderA - orderB;
+      return a.fullName.localeCompare(b.fullName);
+    });
+
+  const handleClick = (label: string, status: 'completed' | 'inMotion' | 'notStarted') => {
+    const item = statusData.find(d => d.label === label);
+    if (item) {
+      onBarClick(item.ownerId, item.fullName, status);
+    }
+  };
+
+  return (
+    <StatusStackedBarChart
+      data={statusData}
+      title="Status by Team"
       onBarClick={handleClick}
     />
   );

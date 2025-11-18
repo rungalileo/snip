@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Epic, Story, Member, Iteration } from './types';
+import { Epic, Story, Member, Iteration, Group } from './types';
 
 const API_BASE = '/api';
 
@@ -33,6 +33,11 @@ export const api = {
 
   async getMember(memberId: string): Promise<Member> {
     const response = await axios.get(`${API_BASE}/members/${memberId}`);
+    return response.data;
+  },
+
+  async getGroup(groupId: string): Promise<Group> {
+    const response = await axios.get(`${API_BASE}/groups/${groupId}`);
     return response.data;
   },
 

@@ -272,6 +272,20 @@ app.get('/api/members/:memberId', async (req, res) => {
   }
 });
 
+// Get group (team) by ID
+app.get('/api/groups/:groupId', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const response = await axios.get(`${SHORTCUT_API_BASE}/groups/${groupId}`, {
+      headers: shortcutHeaders,
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching group:', error);
+    res.status(500).json({ error: 'Failed to fetch group' });
+  }
+});
+
 // Get all iterations
 app.get('/api/iterations', async (req, res) => {
   try {
