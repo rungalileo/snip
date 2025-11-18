@@ -40,8 +40,31 @@ const shortcutHeaders = {
 };
 
 // MongoDB Configuration
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017';
-const MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'snip';
+// Support both remote MongoDB Atlas and local MongoDB
+let MONGO_URI: string;
+let MONGO_DB_NAME: string;
+
+// Check if using MongoDB Atlas credentials (remote)
+const MONGO_USER = process.env.MONGO_USER;
+const MONGO_PASS = process.env.MONGO_PASS;
+const MONGO_CLUSTER = process.env.MONGO_CLUSTER;
+
+if (MONGO_USER && MONGO_PASS && MONGO_CLUSTER) {
+  // Remote MongoDB Atlas setup
+  MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'snip';
+
+  // URL-encode credentials to handle special characters
+  const escapedUser = encodeURIComponent(MONGO_USER);
+  const escapedPass = encodeURIComponent(MONGO_PASS);
+
+  MONGO_URI = `mongodb+srv://${escapedUser}:${escapedPass}@${MONGO_CLUSTER}/?retryWrites=true&w=majority`;
+  console.log('📡 Using remote MongoDB Atlas configuration');
+} else {
+  // Local MongoDB setup or custom MONGO_URI
+  MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017';
+  MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'snip';
+  console.log('💾 Using local MongoDB configuration');
+}
 
 let mongoClient: MongoClient;
 let db: Db;
