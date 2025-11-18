@@ -635,6 +635,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
 
   // Calculate owner table data with categorized ticket counts
   const ownerTableData = useMemo(() => {
+    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification'];
+
     const ownerMap: Record<string, {
       ownerId: string;
       teamId: string;
@@ -642,6 +644,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       bugFixes: Story[];
       foundationWork: Story[];
       other: Story[];
+      completed: Story[];
     }> = {};
 
     stories.forEach(story => {
@@ -658,6 +661,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
           bugFixes: [],
           foundationWork: [],
           other: [],
+          completed: [],
         };
       }
 
@@ -673,6 +677,12 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
         ownerMap[ownerId].foundationWork.push(story);
       } else {
         ownerMap[ownerId].other.push(story);
+      }
+
+      // Check if story is completed
+      const stateName = story.workflow_state?.name || '';
+      if (completedStates.includes(stateName)) {
+        ownerMap[ownerId].completed.push(story);
       }
     });
 
@@ -1438,13 +1448,14 @@ const OwnerBreakdownTable: React.FC<{
     bugFixes: Story[];
     foundationWork: Story[];
     other: Story[];
+    completed: Story[];
   }>;
   onStoryClick: (stories: Story[], title: string) => void;
 }> = ({ ownerTableData, onStoryClick }) => {
   const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
   const [teamNames, setTeamNames] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<'owner' | 'team' | 'productFeatures' | 'bugFixes' | 'foundationWork' | 'other'>('team');
+  const [sortBy, setSortBy] = useState<'owner' | 'team' | 'productFeatures' | 'bugFixes' | 'foundationWork' | 'other' | 'completed'>('team');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Create stable keys for dependencies
@@ -1570,6 +1581,8 @@ const OwnerBreakdownTable: React.FC<{
       compareValue = a.foundationWork.length - b.foundationWork.length;
     } else if (sortBy === 'other') {
       compareValue = a.other.length - b.other.length;
+    } else if (sortBy === 'completed') {
+      compareValue = a.completed.length - b.completed.length;
     }
 
     return sortDirection === 'asc' ? compareValue : -compareValue;
@@ -1643,10 +1656,16 @@ const OwnerBreakdownTable: React.FC<{
                   <SortIcon column="other" />
                 </span>
               </th>
+              <th onClick={() => handleSort('completed')} className="sortable-header">
+                <span className="header-content">
+                  Completed
+                  <SortIcon column="completed" />
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {sortedData.map(({ ownerId, teamId, productFeatures, bugFixes, foundationWork, other }) => {
+            {sortedData.map(({ ownerId, teamId, productFeatures, bugFixes, foundationWork, other, completed }) => {
               const ownerName = ownerNames[ownerId] || 'Unknown';
               const teamName = teamNames[teamId] || 'Unknown';
               const normalizedTeamName = normalizeTeamName(teamName);
@@ -1678,6 +1697,12 @@ const OwnerBreakdownTable: React.FC<{
                     onClick={() => other.length > 0 && onStoryClick(other, `${ownerName} - Other`)}
                   >
                     {other.length}
+                  </td>
+                  <td
+                    className={`count-cell ${completed.length > 0 ? 'clickable' : 'zero-cell'}`}
+                    onClick={() => completed.length > 0 && onStoryClick(completed, `${ownerName} - Completed`)}
+                  >
+                    {completed.length}
                   </td>
                 </tr>
               );
