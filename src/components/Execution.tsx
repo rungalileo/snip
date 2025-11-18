@@ -59,10 +59,11 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [copiedDeepLink, setCopiedDeepLink] = useState(false);
   const [showShareTooltip, setShowShareTooltip] = useState(false);
+  const [includeAllIterations, setIncludeAllIterations] = useState(false);
 
   useEffect(() => {
     loadIterations();
-  }, [selectedIterationName]);
+  }, [selectedIterationName, includeAllIterations]);
 
   useEffect(() => {
     if (selectedIterationId) {
@@ -73,7 +74,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   const loadIterations = async () => {
     try {
       setLoading(true);
-      const data = await api.getIterations();
+      const data = await api.getIterations(includeAllIterations);
 
       // Ensure data is an array
       if (!Array.isArray(data)) {
@@ -547,6 +548,16 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </button>
+        </div>
+        <div className="iteration-filter">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={includeAllIterations}
+              onChange={(e) => setIncludeAllIterations(e.target.checked)}
+            />
+            <span>Include all iterations</span>
+          </label>
         </div>
         <div className="header-actions">
           <div

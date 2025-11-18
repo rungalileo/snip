@@ -9,8 +9,10 @@ export const api = {
     return response.data;
   },
 
-  async getIterations(): Promise<Iteration[]> {
-    const response = await axios.get(`${API_BASE}/iterations`);
+  async getIterations(includeAll: boolean = false): Promise<Iteration[]> {
+    const response = await axios.get(`${API_BASE}/iterations`, {
+      params: { includeAll: includeAll.toString() }
+    });
     return response.data;
   },
 
