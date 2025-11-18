@@ -383,13 +383,17 @@
 
 .owner-breakdown-table-container {
   overflow-x: auto;
+  overflow-y: auto;
   width: 100%;
+  max-height: 600px;
+  position: relative;
 }
 
 .owner-breakdown-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px;
+  table-layout: auto;
 }
 
 .owner-breakdown-table thead {
@@ -398,13 +402,18 @@
 }
 
 .owner-breakdown-table th {
-  padding: 12px 16px;
+  padding: 10px 8px;
   text-align: left;
   font-weight: 600;
   color: #333;
-  font-size: 13px;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  position: sticky;
+  top: 0;
+  background: #f5f5f5;
+  z-index: 10;
+  box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
 }
 
 .owner-breakdown-table th.sortable-header {
@@ -420,7 +429,7 @@
 .owner-breakdown-table .header-content {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   justify-content: space-between;
 }
 
@@ -457,23 +466,36 @@
 }
 
 .owner-breakdown-table td {
-  padding: 12px 16px;
+  padding: 10px 8px;
   color: #333;
 }
 
 .owner-breakdown-table .owner-cell {
   font-weight: 500;
   color: #000;
+  white-space: nowrap;
+  position: sticky;
+  left: 0;
+  background: white;
+  z-index: 5;
+  box-shadow: 2px 0 2px -1px rgba(0, 0, 0, 0.1);
+}
+
+.owner-breakdown-table tbody tr:hover .owner-cell {
+  background-color: #fafafa;
 }
 
 .owner-breakdown-table .team-cell {
   color: #666;
+  white-space: nowrap;
 }
 
 .owner-breakdown-table .count-cell {
   text-align: center;
   font-weight: 500;
   color: #333;
+  white-space: nowrap;
+  padding: 10px 6px;
 }
 
 .owner-breakdown-table .count-cell.clickable {
@@ -499,3 +521,17 @@
   background-color: #f5f5f5;
   color: #999;
 }
+
+.owner-breakdown-table th:not(:first-child):not(:nth-child(2)) {
+  padding: 10px 6px;
+  font-size: 11px;
+}
+
+/* Sticky first column (Owner) in header */
+.owner-breakdown-table th:first-child {
+  left: 0;
+  z-index: 15;
+  background: #f5f5f5;
+  box-shadow: 2px 0 2px -1px rgba(0, 0, 0, 0.1), 0 2px 2px -1px rgba(0, 0, 0, 0.1);
+}
+
