@@ -22,6 +22,41 @@ const LABEL_CATEGORIES = [
 // Add "Other" category for unlabeled or uncategorized stories
 const LABEL_CATEGORIES_WITH_OTHER = [...LABEL_CATEGORIES, 'OTHER'];
 
+// Label priority order (higher index = higher priority)
+// Priority: Product feature > customer feature request > FOUNDATIONAL work > customer escalation > bug > nice to have > task etc.
+const LABEL_PRIORITY: Record<string, number> = {
+  'PRODUCT FEATURE': 7,
+  'CUSTOMER FEATURE REQUEST': 6,
+  'FOUNDATIONAL WORK': 5,
+  'CUSTOMER ESCALATION': 4,
+  'BUG': 3,
+  'NICE TO HAVE': 2,
+  'TASK': 1,
+  'SMALL IMPROVEMENT': 0,
+};
+
+// Helper function to get the highest priority label for a story
+const getHighestPriorityLabel = (labels: Array<{ name: string }> | undefined): string => {
+  if (!labels || labels.length === 0) {
+    return 'OTHER';
+  }
+
+  let highestPriority = -1;
+  let highestPriorityLabel: string | null = null;
+
+  labels.forEach(label => {
+    if (LABEL_CATEGORIES.includes(label.name)) {
+      const priority = LABEL_PRIORITY[label.name] ?? -1;
+      if (priority > highestPriority) {
+        highestPriority = priority;
+        highestPriorityLabel = label.name;
+      }
+    }
+  });
+
+  return highestPriorityLabel || 'OTHER';
+};
+
 // Helper to get initials from a name
 const getInitials = (name: string): string => {
   const words = name.trim().split(/\s+/);
@@ -281,18 +316,14 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     // teamId might be comma-separated for merged teams
     const teamIds = teamId.split(',');
 
-    // Filter stories by team(s) and label
+    // Filter stories by team(s) and label (using priority logic)
     const filteredStories = stories.filter(story => {
       const storyTeamId = story.group_id || 'unassigned';
       if (!teamIds.includes(storyTeamId)) return false;
 
-      // Special handling for "OTHER" category
-      if (label === 'OTHER') {
-        const hasMatchingLabel = story.labels?.some(l => LABEL_CATEGORIES.includes(l.name));
-        return !hasMatchingLabel;
-      } else {
-        return story.labels?.some(l => l.name === label);
-      }
+      // Get the highest priority label for this story
+      const priorityLabel = getHighestPriorityLabel(story.labels);
+      return priorityLabel === label;
     });
 
     setModalTitle(`${label} (${filteredStories.length} stories)`);
@@ -539,21 +570,9 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
         });
       }
 
-      // Check if story has any labels in our categories
-      let hasMatchingLabel = false;
-      if (story.labels && story.labels.length > 0) {
-        story.labels.forEach(label => {
-          if (LABEL_CATEGORIES.includes(label.name)) {
-            teamData[teamId][label.name] = (teamData[teamId][label.name] || 0) + 1;
-            hasMatchingLabel = true;
-          }
-        });
-      }
-
-      // If no matching label found, count as "OTHER"
-      if (!hasMatchingLabel) {
-        teamData[teamId]['OTHER'] = (teamData[teamId]['OTHER'] || 0) + 1;
-      }
+      // Get the highest priority label for this story (each story counted only once)
+      const priorityLabel = getHighestPriorityLabel(story.labels);
+      teamData[teamId][priorityLabel] = (teamData[teamId][priorityLabel] || 0) + 1;
     });
 
     // Convert to array format for rendering
