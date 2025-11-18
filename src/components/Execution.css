@@ -365,3 +365,132 @@
   width: 100%;
   min-width: fit-content;
 }
+
+.owner-breakdown-section {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 24px;
+  margin-top: 24px;
+}
+
+.table-section-title {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.owner-breakdown-table-container {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.owner-breakdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.owner-breakdown-table thead {
+  background: #f5f5f5;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.owner-breakdown-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.owner-breakdown-table th.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.owner-breakdown-table th.sortable-header:hover {
+  background-color: #ebebeb;
+}
+
+.owner-breakdown-table .header-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: space-between;
+}
+
+.owner-breakdown-table .sort-icon {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.3;
+  transition: opacity 0.15s ease;
+}
+
+.owner-breakdown-table .sort-icon-active {
+  opacity: 1;
+}
+
+.owner-breakdown-table th.sortable-header:hover .sort-icon {
+  opacity: 0.6;
+}
+
+.owner-breakdown-table th.sortable-header:hover .sort-icon-active {
+  opacity: 1;
+}
+
+.owner-breakdown-table tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+  transition: background-color 0.15s ease;
+}
+
+.owner-breakdown-table tbody tr:hover {
+  background-color: #fafafa;
+}
+
+.owner-breakdown-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.owner-breakdown-table td {
+  padding: 12px 16px;
+  color: #333;
+}
+
+.owner-breakdown-table .owner-cell {
+  font-weight: 500;
+  color: #000;
+}
+
+.owner-breakdown-table .team-cell {
+  color: #666;
+}
+
+.owner-breakdown-table .count-cell {
+  text-align: center;
+  font-weight: 500;
+  color: #333;
+}
+
+.owner-breakdown-table .count-cell.clickable {
+  cursor: pointer;
+  color: #1976d2;
+  transition: all 0.15s ease;
+}
+
+.owner-breakdown-table .count-cell.clickable:hover {
+  background-color: rgba(25, 118, 210, 0.1);
+  color: #1565c0;
+  font-weight: 600;
+}
+
+.owner-table-loading {
+  padding: 40px;
+  text-align: center;
+  color: #666;
+  font-size: 15px;
+}

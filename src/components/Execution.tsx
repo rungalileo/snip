@@ -633,6 +633,52 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     return Math.max(...allCounts, 1);
   }, [overallLabelCounts, ownerLabelCounts, teamLabelCounts]);
 
+  // Calculate owner table data with categorized ticket counts
+  const ownerTableData = useMemo(() => {
+    const ownerMap: Record<string, {
+      ownerId: string;
+      teamId: string;
+      productFeatures: Story[];
+      bugFixes: Story[];
+      foundationWork: Story[];
+      other: Story[];
+    }> = {};
+
+    stories.forEach(story => {
+      const ownerId = story.owner_ids && story.owner_ids.length > 0
+        ? story.owner_ids[0]
+        : 'unassigned';
+      const teamId = story.group_id || 'unassigned';
+
+      if (!ownerMap[ownerId]) {
+        ownerMap[ownerId] = {
+          ownerId,
+          teamId,
+          productFeatures: [],
+          bugFixes: [],
+          foundationWork: [],
+          other: [],
+        };
+      }
+
+      // Get the highest priority label for this story
+      const priorityLabel = getHighestPriorityLabel(story.labels);
+
+      // Categorize the ticket
+      if (['PRODUCT FEATURE', 'CUSTOMER FEATURE REQUEST', 'TASK'].includes(priorityLabel)) {
+        ownerMap[ownerId].productFeatures.push(story);
+      } else if (['CUSTOMER ESCALATION', 'BUG', 'SMALL IMPROVEMENT'].includes(priorityLabel)) {
+        ownerMap[ownerId].bugFixes.push(story);
+      } else if (priorityLabel === 'FOUNDATIONAL WORK') {
+        ownerMap[ownerId].foundationWork.push(story);
+      } else {
+        ownerMap[ownerId].other.push(story);
+      }
+    });
+
+    return Object.values(ownerMap);
+  }, [stories]);
+
   // Calculate progress percentages based on workflow states
   const progressStats = useMemo(() => {
     if (stories.length === 0) {
@@ -908,6 +954,16 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
                   )}
                 </div>
               </div>
+
+              {/* Owner breakdown table */}
+              <OwnerBreakdownTable
+                ownerTableData={ownerTableData}
+                onStoryClick={(stories, title) => {
+                  setModalTitle(title);
+                  setModalStories(stories);
+                  setIsModalOpen(true);
+                }}
+              />
             </>
           )}
         </div>
@@ -1370,5 +1426,265 @@ const StatusByTeamWrapper: React.FC<{
       title="Status by Team"
       onBarClick={handleClick}
     />
+  );
+};
+
+// Component to display owner breakdown table
+const OwnerBreakdownTable: React.FC<{
+  ownerTableData: Array<{
+    ownerId: string;
+    teamId: string;
+    productFeatures: Story[];
+    bugFixes: Story[];
+    foundationWork: Story[];
+    other: Story[];
+  }>;
+  onStoryClick: (stories: Story[], title: string) => void;
+}> = ({ ownerTableData, onStoryClick }) => {
+  const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
+  const [teamNames, setTeamNames] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<'owner' | 'team' | 'productFeatures' | 'bugFixes' | 'foundationWork' | 'other'>('team');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Create stable keys for dependencies
+  const ownerIdsKey = useMemo(() => {
+    return ownerTableData.map(o => o.ownerId).sort().join(',');
+  }, [ownerTableData]);
+
+  const teamIdsKey = useMemo(() => {
+    return [...new Set(ownerTableData.map(o => o.teamId))].sort().join(',');
+  }, [ownerTableData]);
+
+  // Fetch owner and team names
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchNames = async () => {
+      setIsLoading(true);
+      const owners: Record<string, string> = {};
+      const teams: Record<string, string> = {};
+
+      // Fetch owner names
+      for (const { ownerId } of ownerTableData) {
+        if (isCancelled) return;
+
+        if (ownerId === 'unassigned') {
+          owners[ownerId] = 'Unassigned';
+        } else {
+          try {
+            const member = await api.getMember(ownerId);
+            if (!isCancelled) {
+              owners[ownerId] = member.profile?.name || 'Unknown';
+            }
+          } catch (error) {
+            console.error('Error fetching owner:', error);
+            if (!isCancelled) {
+              owners[ownerId] = 'Unknown';
+            }
+          }
+        }
+      }
+
+      // Fetch team names
+      const uniqueTeamIds = [...new Set(ownerTableData.map(o => o.teamId))];
+      for (const teamId of uniqueTeamIds) {
+        if (isCancelled) return;
+
+        if (teamId === 'unassigned') {
+          teams[teamId] = 'Unassigned';
+        } else {
+          try {
+            const group = await api.getGroup(teamId);
+            if (!isCancelled) {
+              teams[teamId] = group.name || 'Unknown';
+            }
+          } catch (error) {
+            console.error('Error fetching team:', error);
+            if (!isCancelled) {
+              teams[teamId] = 'Unknown';
+            }
+          }
+        }
+      }
+
+      if (!isCancelled) {
+        setOwnerNames(owners);
+        setTeamNames(teams);
+        setIsLoading(false);
+      }
+    };
+
+    if (ownerTableData.length > 0) {
+      fetchNames();
+    } else {
+      setIsLoading(false);
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [ownerIdsKey, teamIdsKey]);
+
+  const handleSort = (column: typeof sortBy) => {
+    if (sortBy === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortDirection('asc');
+    }
+  };
+
+  if (isLoading) {
+    return <div className="owner-table-loading">Loading table data...</div>;
+  }
+
+  // Sort table data
+  const sortedData = [...ownerTableData].sort((a, b) => {
+    let compareValue = 0;
+
+    if (sortBy === 'owner') {
+      const nameA = ownerNames[a.ownerId] || 'Unknown';
+      const nameB = ownerNames[b.ownerId] || 'Unknown';
+      compareValue = nameA.localeCompare(nameB);
+    } else if (sortBy === 'team') {
+      const teamA = teamNames[a.teamId] || 'Unknown';
+      const teamB = teamNames[b.teamId] || 'Unknown';
+      const normalizedA = normalizeTeamName(teamA);
+      const normalizedB = normalizeTeamName(teamB);
+
+      // Use team sort order first
+      const orderA = getTeamSortOrder(normalizedA);
+      const orderB = getTeamSortOrder(normalizedB);
+
+      if (orderA !== orderB) {
+        compareValue = orderA - orderB;
+      } else {
+        compareValue = normalizedA.localeCompare(normalizedB);
+      }
+    } else if (sortBy === 'productFeatures') {
+      compareValue = a.productFeatures.length - b.productFeatures.length;
+    } else if (sortBy === 'bugFixes') {
+      compareValue = a.bugFixes.length - b.bugFixes.length;
+    } else if (sortBy === 'foundationWork') {
+      compareValue = a.foundationWork.length - b.foundationWork.length;
+    } else if (sortBy === 'other') {
+      compareValue = a.other.length - b.other.length;
+    }
+
+    return sortDirection === 'asc' ? compareValue : -compareValue;
+  });
+
+  const SortIcon: React.FC<{ column: typeof sortBy }> = ({ column }) => {
+    if (sortBy !== column) {
+      return (
+        <span className="sort-icon sort-icon-inactive">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 5v14M5 12l7 7 7-7"/>
+          </svg>
+        </span>
+      );
+    }
+    return (
+      <span className="sort-icon sort-icon-active">
+        {sortDirection === 'asc' ? (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 19V5M5 12l7-7 7 7"/>
+          </svg>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 5v14M5 12l7 7 7-7"/>
+          </svg>
+        )}
+      </span>
+    );
+  };
+
+  return (
+    <div className="owner-breakdown-section">
+      <h3 className="table-section-title">Breakdown by Owner</h3>
+      <div className="owner-breakdown-table-container">
+        <table className="owner-breakdown-table">
+          <thead>
+            <tr>
+              <th onClick={() => handleSort('owner')} className="sortable-header">
+                <span className="header-content">
+                  Owner
+                  <SortIcon column="owner" />
+                </span>
+              </th>
+              <th onClick={() => handleSort('team')} className="sortable-header">
+                <span className="header-content">
+                  Team
+                  <SortIcon column="team" />
+                </span>
+              </th>
+              <th onClick={() => handleSort('productFeatures')} className="sortable-header">
+                <span className="header-content">
+                  Product Features
+                  <SortIcon column="productFeatures" />
+                </span>
+              </th>
+              <th onClick={() => handleSort('bugFixes')} className="sortable-header">
+                <span className="header-content">
+                  Bug Fixes
+                  <SortIcon column="bugFixes" />
+                </span>
+              </th>
+              <th onClick={() => handleSort('foundationWork')} className="sortable-header">
+                <span className="header-content">
+                  Foundation Work
+                  <SortIcon column="foundationWork" />
+                </span>
+              </th>
+              <th onClick={() => handleSort('other')} className="sortable-header">
+                <span className="header-content">
+                  Other
+                  <SortIcon column="other" />
+                </span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedData.map(({ ownerId, teamId, productFeatures, bugFixes, foundationWork, other }) => {
+              const ownerName = ownerNames[ownerId] || 'Unknown';
+              const teamName = teamNames[teamId] || 'Unknown';
+              const normalizedTeamName = normalizeTeamName(teamName);
+
+              return (
+                <tr key={ownerId}>
+                  <td className="owner-cell">{ownerName}</td>
+                  <td className="team-cell">{normalizedTeamName}</td>
+                  <td
+                    className="count-cell clickable"
+                    onClick={() => productFeatures.length > 0 && onStoryClick(productFeatures, `${ownerName} - Product Features`)}
+                  >
+                    {productFeatures.length}
+                  </td>
+                  <td
+                    className="count-cell clickable"
+                    onClick={() => bugFixes.length > 0 && onStoryClick(bugFixes, `${ownerName} - Bug Fixes`)}
+                  >
+                    {bugFixes.length}
+                  </td>
+                  <td
+                    className="count-cell clickable"
+                    onClick={() => foundationWork.length > 0 && onStoryClick(foundationWork, `${ownerName} - Foundation Work`)}
+                  >
+                    {foundationWork.length}
+                  </td>
+                  <td
+                    className="count-cell clickable"
+                    onClick={() => other.length > 0 && onStoryClick(other, `${ownerName} - Other`)}
+                  >
+                    {other.length}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 };
