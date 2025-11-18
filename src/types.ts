@@ -34,6 +34,7 @@ export interface Story {
   owner_ids: string[];
   requested_by_id: string;
   epic_id: number;
+  group_id?: string;
   app_url: string;
   completed: boolean;
   completed_at?: string;
@@ -54,6 +55,12 @@ export interface Member {
     name: string;
     email_address: string;
   };
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  mention_name: string;
 }
 
 export interface Iteration {

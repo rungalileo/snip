@@ -259,8 +259,7 @@ export const StoryModal: React.FC<StoryModalProps> = ({
   };
 
   const handleCopyAllLinks = () => {
-    const allLinks = allStories.map(story => story.app_url).join('\n');
-    navigator.clipboard.writeText(allLinks);
+    navigator.clipboard.writeText(currentStory.app_url);
     setCopiedAllLinks(true);
     setTimeout(() => setCopiedAllLinks(false), 2000);
   };
@@ -341,9 +340,9 @@ export const StoryModal: React.FC<StoryModalProps> = ({
             <button
               onClick={handleCopyAllLinks}
               className="copy-all-links-btn"
-              title="Copy all story links"
+              title="Copy story link"
             >
-              {copiedAllLinks ? '✓ Copied' : 'Copy Links'}
+              {copiedAllLinks ? '✓ Copied' : 'Copy Link'}
             </button>
             <button
               onClick={handleToggleBookmark}

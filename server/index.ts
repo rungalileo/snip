@@ -40,21 +40,8 @@ const shortcutHeaders = {
 };
 
 // MongoDB Configuration
-const MONGO_USER = process.env.MONGO_USER;
-const MONGO_PASS = process.env.MONGO_PASS;
-const MONGO_CLUSTER = process.env.MONGO_CLUSTER;
-const MONGO_DB_NAME = process.env.MONGO_DB_NAME;
-
-if (!MONGO_USER || !MONGO_PASS || !MONGO_CLUSTER || !MONGO_DB_NAME) {
-  console.error('MongoDB environment variables are not set');
-  process.exit(1);
-}
-
-// URL-encode credentials to handle special characters
-const escapedUser = encodeURIComponent(MONGO_USER);
-const escapedPass = encodeURIComponent(MONGO_PASS);
-
-const MONGO_URI = `mongodb+srv://${escapedUser}:${escapedPass}@${MONGO_CLUSTER}/?retryWrites=true&w=majority`;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017';
+const MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'snip';
 
 let mongoClient: MongoClient;
 let db: Db;
@@ -65,7 +52,9 @@ async function connectToMongoDB() {
     mongoClient = new MongoClient(MONGO_URI);
     await mongoClient.connect();
     db = mongoClient.db(MONGO_DB_NAME);
-    console.log('✅ Connected to MongoDB database:', MONGO_DB_NAME);
+    console.log('✅ Connected to MongoDB');
+    console.log('   URI:', MONGO_URI);
+    console.log('   Database:', MONGO_DB_NAME);
   } catch (error) {
     console.error('❌ Failed to connect to MongoDB:', error);
     console.error('Server will continue but bookmark features will not work');
@@ -283,13 +272,42 @@ app.get('/api/members/:memberId', async (req, res) => {
   }
 });
 
+// Get group (team) by ID
+app.get('/api/groups/:groupId', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const response = await axios.get(`${SHORTCUT_API_BASE}/groups/${groupId}`, {
+      headers: shortcutHeaders,
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching group:', error);
+    res.status(500).json({ error: 'Failed to fetch group' });
+  }
+});
+
 // Get all iterations
 app.get('/api/iterations', async (req, res) => {
   try {
     const response = await axios.get(`${SHORTCUT_API_BASE}/iterations`, {
       headers: shortcutHeaders,
     });
-    res.json(response.data);
+
+    let iterations = response.data;
+
+    // Check if filtering is requested (default: true for backward compatibility)
+    const includeAll = req.query.includeAll === 'true';
+
+    if (!includeAll) {
+      // Filter iterations to only include those matching the pattern: MonthYYYY-WN
+      // Examples: Nov2025-W1, Dec2025-W2, Jan2026-W3
+      const namePattern = /^[A-Z][a-z]{2}\d{4}-W\d+$/;
+      iterations = iterations.filter((iteration: any) =>
+        namePattern.test(iteration.name)
+      );
+    }
+
+    res.json(iterations);
   } catch (error) {
     console.error('Error fetching iterations:', error);
     res.status(500).json({ error: 'Failed to fetch iterations' });

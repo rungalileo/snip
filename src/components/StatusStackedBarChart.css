@@ -133,7 +133,7 @@
   left: 0;
   right: 10px;
   bottom: 0;
-  height: 200px;
+  height: 300px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -170,7 +170,7 @@
 
 .status-bar-column {
   width: 100%;
-  height: 200px;
+  height: 300px;
   display: flex;
   align-items: flex-end;
   position: relative;
