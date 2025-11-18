@@ -1656,25 +1656,25 @@ const OwnerBreakdownTable: React.FC<{
                   <td className="owner-cell">{ownerName}</td>
                   <td className="team-cell">{normalizedTeamName}</td>
                   <td
-                    className="count-cell clickable"
+                    className={`count-cell ${productFeatures.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => productFeatures.length > 0 && onStoryClick(productFeatures, `${ownerName} - Product Features`)}
                   >
                     {productFeatures.length}
                   </td>
                   <td
-                    className="count-cell clickable"
+                    className={`count-cell ${bugFixes.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => bugFixes.length > 0 && onStoryClick(bugFixes, `${ownerName} - Bug Fixes`)}
                   >
                     {bugFixes.length}
                   </td>
                   <td
-                    className="count-cell clickable"
+                    className={`count-cell ${foundationWork.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => foundationWork.length > 0 && onStoryClick(foundationWork, `${ownerName} - Foundation Work`)}
                   >
                     {foundationWork.length}
                   </td>
                   <td
-                    className="count-cell clickable"
+                    className={`count-cell ${other.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => other.length > 0 && onStoryClick(other, `${ownerName} - Other`)}
                   >
                     {other.length}
