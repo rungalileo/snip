@@ -535,3 +535,24 @@
   box-shadow: 2px 0 2px -1px rgba(0, 0, 0, 0.1), 0 2px 2px -1px rgba(0, 0, 0, 0.1);
 }
 
+/* Total row styling */
+.owner-breakdown-table .total-row {
+  background-color: #f5f5f5;
+  border-top: 2px solid #333;
+  font-weight: 600;
+}
+
+.owner-breakdown-table .total-row:hover {
+  background-color: #f5f5f5 !important;
+}
+
+.owner-breakdown-table .total-label {
+  font-weight: 600;
+  color: #000;
+  position: sticky;
+  left: 0;
+  background: #f5f5f5;
+  z-index: 5;
+  box-shadow: 2px 0 2px -1px rgba(0, 0, 0, 0.1);
+}
+

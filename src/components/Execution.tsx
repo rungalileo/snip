@@ -341,6 +341,32 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     setIsModalOpen(true);
   };
 
+  const handleStatusByCategoryClick = (category: string, status: 'completed' | 'inMotion' | 'notStarted') => {
+    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification'];
+    const inMotionStates = ['In Development', 'In Review'];
+
+    // Filter stories by category and status
+    const filteredStories = stories.filter(story => {
+      // Check if story belongs to this category
+      const hasCategory = story.labels?.some(l => l.name === category);
+      if (!hasCategory) return false;
+
+      // Check if story matches the status
+      const stateName = story.workflow_state?.name || '';
+      if (status === 'completed' && completedStates.includes(stateName)) return true;
+      if (status === 'inMotion' && inMotionStates.includes(stateName)) return true;
+      if (status === 'notStarted' && !completedStates.includes(stateName) && !inMotionStates.includes(stateName)) return true;
+
+      return false;
+    });
+
+    // Set modal data
+    const statusLabel = status === 'completed' ? 'Completed' : status === 'inMotion' ? 'In Motion' : 'Not Started';
+    setModalTitle(`${category} - ${statusLabel} (${filteredStories.length} stories)`);
+    setModalStories(filteredStories);
+    setIsModalOpen(true);
+  };
+
   const handleTeamBarClick = (teamId: string, label: string) => {
     // teamId might be comma-separated for merged teams
     const teamIds = teamId.split(',');
@@ -944,6 +970,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
                           data={statusByCategory}
                           title=""
                           overallStats={categoryOverallStats}
+                          onBarClick={handleStatusByCategoryClick}
                         />
                       </div>
                     )
@@ -1509,7 +1536,7 @@ const OwnerBreakdownTable: React.FC<{
   const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
   const [teamNames, setTeamNames] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<'owner' | 'team' | 'productFeatures' | 'bugFixes' | 'foundationWork' | 'smallImprovement' | 'task' | 'customerFeatureRequest' | 'niceToHave' | 'customerEscalation' | 'other' | 'completed'>('team');
+  const [sortBy, setSortBy] = useState<'owner' | 'team' | 'stories' | 'productFeatures' | 'bugFixes' | 'foundationWork' | 'smallImprovement' | 'task' | 'customerFeatureRequest' | 'niceToHave' | 'customerEscalation' | 'other' | 'completed'>('team');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Create stable keys for dependencies
@@ -1627,6 +1654,14 @@ const OwnerBreakdownTable: React.FC<{
       } else {
         compareValue = normalizedA.localeCompare(normalizedB);
       }
+    } else if (sortBy === 'stories') {
+      const totalA = a.productFeatures.length + a.bugFixes.length + a.foundationWork.length +
+                     a.smallImprovement.length + a.task.length + a.customerFeatureRequest.length +
+                     a.niceToHave.length + a.customerEscalation.length + a.other.length;
+      const totalB = b.productFeatures.length + b.bugFixes.length + b.foundationWork.length +
+                     b.smallImprovement.length + b.task.length + b.customerFeatureRequest.length +
+                     b.niceToHave.length + b.customerEscalation.length + b.other.length;
+      compareValue = totalA - totalB;
     } else if (sortBy === 'productFeatures') {
       compareValue = a.productFeatures.length - b.productFeatures.length;
     } else if (sortBy === 'bugFixes') {
@@ -1688,6 +1723,12 @@ const OwnerBreakdownTable: React.FC<{
                 <span className="header-content">
                   Owner
                   <SortIcon column="owner" />
+                </span>
+              </th>
+              <th onClick={() => handleSort('stories')} className="sortable-header">
+                <span className="header-content">
+                  Stories
+                  <SortIcon column="stories" />
                 </span>
               </th>
               <th onClick={() => handleSort('team')} className="sortable-header">
@@ -1763,74 +1804,120 @@ const OwnerBreakdownTable: React.FC<{
               const ownerName = ownerNames[ownerId] || 'Unknown';
               const teamName = teamNames[teamId] || 'Unknown';
               const normalizedTeamName = normalizeTeamName(teamName);
+              const totalStories = productFeatures.length + bugFixes.length + foundationWork.length +
+                                   smallImprovement.length + task.length + customerFeatureRequest.length +
+                                   niceToHave.length + customerEscalation.length + other.length;
+              const allStories = [...productFeatures, ...bugFixes, ...foundationWork, ...smallImprovement,
+                                  ...task, ...customerFeatureRequest, ...niceToHave, ...customerEscalation, ...other];
 
               return (
                 <tr key={ownerId}>
                   <td className="owner-cell">{ownerName}</td>
+                  <td
+                    className={`count-cell ${totalStories > 0 ? 'clickable' : 'zero-cell'}`}
+                    onClick={() => totalStories > 0 && onStoryClick(allStories, `${ownerName} - All Stories`)}
+                  >
+                    {totalStories > 0 ? totalStories : ''}
+                  </td>
                   <td className="team-cell">{normalizedTeamName}</td>
                   <td
                     className={`count-cell ${productFeatures.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => productFeatures.length > 0 && onStoryClick(productFeatures, `${ownerName} - Product Features`)}
                   >
-                    {productFeatures.length}
+                    {productFeatures.length > 0 ? productFeatures.length : ''}
                   </td>
                   <td
                     className={`count-cell ${bugFixes.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => bugFixes.length > 0 && onStoryClick(bugFixes, `${ownerName} - Bug Fixes`)}
                   >
-                    {bugFixes.length}
+                    {bugFixes.length > 0 ? bugFixes.length : ''}
                   </td>
                   <td
                     className={`count-cell ${foundationWork.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => foundationWork.length > 0 && onStoryClick(foundationWork, `${ownerName} - Foundation Work`)}
                   >
-                    {foundationWork.length}
+                    {foundationWork.length > 0 ? foundationWork.length : ''}
                   </td>
                   <td
                     className={`count-cell ${smallImprovement.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => smallImprovement.length > 0 && onStoryClick(smallImprovement, `${ownerName} - Small Improvement`)}
                   >
-                    {smallImprovement.length}
+                    {smallImprovement.length > 0 ? smallImprovement.length : ''}
                   </td>
                   <td
                     className={`count-cell ${task.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => task.length > 0 && onStoryClick(task, `${ownerName} - Task`)}
                   >
-                    {task.length}
+                    {task.length > 0 ? task.length : ''}
                   </td>
                   <td
                     className={`count-cell ${customerFeatureRequest.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => customerFeatureRequest.length > 0 && onStoryClick(customerFeatureRequest, `${ownerName} - Customer Feature Request`)}
                   >
-                    {customerFeatureRequest.length}
+                    {customerFeatureRequest.length > 0 ? customerFeatureRequest.length : ''}
                   </td>
                   <td
                     className={`count-cell ${niceToHave.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => niceToHave.length > 0 && onStoryClick(niceToHave, `${ownerName} - Nice to have`)}
                   >
-                    {niceToHave.length}
+                    {niceToHave.length > 0 ? niceToHave.length : ''}
                   </td>
                   <td
                     className={`count-cell ${customerEscalation.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => customerEscalation.length > 0 && onStoryClick(customerEscalation, `${ownerName} - Customer Escalation`)}
                   >
-                    {customerEscalation.length}
+                    {customerEscalation.length > 0 ? customerEscalation.length : ''}
                   </td>
                   <td
                     className={`count-cell ${other.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => other.length > 0 && onStoryClick(other, `${ownerName} - Other`)}
                   >
-                    {other.length}
+                    {other.length > 0 ? other.length : ''}
                   </td>
                   <td
                     className={`count-cell ${completed.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => completed.length > 0 && onStoryClick(completed, `${ownerName} - Completed`)}
                   >
-                    {completed.length}
+                    {completed.length > 0 ? completed.length : ''}
                   </td>
                 </tr>
               );
             })}
+            {/* Total row */}
+            {sortedData.length > 0 && (() => {
+              const totalStories = sortedData.reduce((sum, row) =>
+                sum + row.productFeatures.length + row.bugFixes.length + row.foundationWork.length +
+                row.smallImprovement.length + row.task.length + row.customerFeatureRequest.length +
+                row.niceToHave.length + row.customerEscalation.length + row.other.length, 0);
+              const totalProductFeatures = sortedData.reduce((sum, row) => sum + row.productFeatures.length, 0);
+              const totalBugFixes = sortedData.reduce((sum, row) => sum + row.bugFixes.length, 0);
+              const totalFoundationWork = sortedData.reduce((sum, row) => sum + row.foundationWork.length, 0);
+              const totalSmallImprovement = sortedData.reduce((sum, row) => sum + row.smallImprovement.length, 0);
+              const totalTask = sortedData.reduce((sum, row) => sum + row.task.length, 0);
+              const totalCustomerFeatureRequest = sortedData.reduce((sum, row) => sum + row.customerFeatureRequest.length, 0);
+              const totalNiceToHave = sortedData.reduce((sum, row) => sum + row.niceToHave.length, 0);
+              const totalCustomerEscalation = sortedData.reduce((sum, row) => sum + row.customerEscalation.length, 0);
+              const totalOther = sortedData.reduce((sum, row) => sum + row.other.length, 0);
+              const totalCompleted = sortedData.reduce((sum, row) => sum + row.completed.length, 0);
+
+              return (
+                <tr className="total-row">
+                  <td className="total-label"><strong>Total</strong></td>
+                  <td className="count-cell"><strong>{totalStories > 0 ? totalStories : ''}</strong></td>
+                  <td></td>
+                  <td className="count-cell"><strong>{totalProductFeatures > 0 ? totalProductFeatures : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalBugFixes > 0 ? totalBugFixes : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalFoundationWork > 0 ? totalFoundationWork : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalSmallImprovement > 0 ? totalSmallImprovement : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalTask > 0 ? totalTask : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalCustomerFeatureRequest > 0 ? totalCustomerFeatureRequest : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalNiceToHave > 0 ? totalNiceToHave : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalCustomerEscalation > 0 ? totalCustomerEscalation : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalOther > 0 ? totalOther : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalCompleted > 0 ? totalCompleted : ''}</strong></td>
+                </tr>
+              );
+            })()}
           </tbody>
         </table>
       </div>
