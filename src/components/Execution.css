@@ -535,6 +535,34 @@
   box-shadow: 2px 0 2px -1px rgba(0, 0, 0, 0.1), 0 2px 2px -1px rgba(0, 0, 0, 0.1);
 }
 
+/* Narrow Stories column (2nd column) */
+.owner-breakdown-table th:nth-child(2),
+.owner-breakdown-table td:nth-child(2) {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 4px;
+  padding-right: 4px;
+  min-width: 0;
+}
+
+.owner-breakdown-table th:nth-child(2) .header-content {
+  gap: 2px;
+}
+
+/* Narrow Completed column (3rd column) */
+.owner-breakdown-table th:nth-child(3),
+.owner-breakdown-table td:nth-child(3) {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 4px;
+  padding-right: 4px;
+  min-width: 0;
+}
+
+.owner-breakdown-table th:nth-child(3) .header-content {
+  gap: 2px;
+}
+
 /* Total row styling */
 .owner-breakdown-table .total-row {
   background-color: #f5f5f5;

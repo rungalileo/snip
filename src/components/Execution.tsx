@@ -314,8 +314,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   };
 
   const handleStatusByOwnerClick = (ownerId: string, ownerName: string, status: 'completed' | 'inMotion' | 'notStarted') => {
-    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification'];
-    const inMotionStates = ['In Development', 'In Review'];
+    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
+    const inMotionStates = ['In Development'];
 
     // Filter stories by owner and status
     const filteredStories = stories.filter(story => {
@@ -342,8 +342,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   };
 
   const handleStatusByCategoryClick = (category: string, status: 'completed' | 'inMotion' | 'notStarted') => {
-    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification'];
-    const inMotionStates = ['In Development', 'In Review'];
+    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
+    const inMotionStates = ['In Development'];
 
     // Filter stories by category and status
     const filteredStories = stories.filter(story => {
@@ -387,8 +387,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   };
 
   const handleStatusByTeamClick = (teamId: string, teamName: string, status: 'completed' | 'inMotion' | 'notStarted') => {
-    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification'];
-    const inMotionStates = ['In Development', 'In Review'];
+    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
+    const inMotionStates = ['In Development'];
 
     // teamId might be comma-separated for merged teams
     const teamIds = teamId.split(',');
@@ -480,8 +480,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
 
   // Calculate status breakdown for each label category
   const statusByCategory = useMemo(() => {
-    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification'];
-    const inMotionStates = ['In Development', 'In Review'];
+    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
+    const inMotionStates = ['In Development'];
 
     return LABEL_CATEGORIES.map(labelCategory => {
       // Filter stories with this label
@@ -573,8 +573,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
 
   // Calculate status breakdown for each owner (use same owner list as ownerLabelCounts)
   const statusByOwner = useMemo(() => {
-    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification'];
-    const inMotionStates = ['In Development', 'In Review'];
+    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
+    const inMotionStates = ['In Development'];
 
     // Use the same owner IDs from ownerLabelCounts to ensure consistency
     return ownerLabelCounts.map(({ ownerId }) => {
@@ -642,8 +642,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
 
   // Calculate status breakdown for each team (use same team list as teamLabelCounts)
   const statusByTeam = useMemo(() => {
-    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification'];
-    const inMotionStates = ['In Development', 'In Review'];
+    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
+    const inMotionStates = ['In Development'];
 
     // Use the same team IDs from teamLabelCounts to ensure consistency
     return teamLabelCounts.map(({ teamId }) => {
@@ -690,7 +690,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
 
   // Calculate owner table data with categorized ticket counts
   const ownerTableData = useMemo(() => {
-    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification'];
+    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
 
     const ownerMap: Record<string, {
       ownerId: string;
@@ -770,8 +770,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       return { completed: 0, inMotion: 0, notStarted: 0 };
     }
 
-    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification'];
-    const inMotionStates = ['In Development', 'In Review'];
+    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
+    const inMotionStates = ['In Development'];
 
     let completedCount = 0;
     let inMotionCount = 0;
@@ -1727,8 +1727,14 @@ const OwnerBreakdownTable: React.FC<{
               </th>
               <th onClick={() => handleSort('stories')} className="sortable-header">
                 <span className="header-content">
-                  Stories
+                  #
                   <SortIcon column="stories" />
+                </span>
+              </th>
+              <th onClick={() => handleSort('completed')} className="sortable-header">
+                <span className="header-content">
+                  Done
+                  <SortIcon column="completed" />
                 </span>
               </th>
               <th onClick={() => handleSort('team')} className="sortable-header">
@@ -1791,12 +1797,6 @@ const OwnerBreakdownTable: React.FC<{
                   <SortIcon column="other" />
                 </span>
               </th>
-              <th onClick={() => handleSort('completed')} className="sortable-header">
-                <span className="header-content">
-                  Completed
-                  <SortIcon column="completed" />
-                </span>
-              </th>
             </tr>
           </thead>
           <tbody>
@@ -1818,6 +1818,12 @@ const OwnerBreakdownTable: React.FC<{
                     onClick={() => totalStories > 0 && onStoryClick(allStories, `${ownerName} - All Stories`)}
                   >
                     {totalStories > 0 ? totalStories : ''}
+                  </td>
+                  <td
+                    className={`count-cell ${completed.length > 0 ? 'clickable' : 'zero-cell'}`}
+                    onClick={() => completed.length > 0 && onStoryClick(completed, `${ownerName} - Completed`)}
+                  >
+                    {completed.length}
                   </td>
                   <td className="team-cell">{normalizedTeamName}</td>
                   <td
@@ -1874,12 +1880,6 @@ const OwnerBreakdownTable: React.FC<{
                   >
                     {other.length > 0 ? other.length : ''}
                   </td>
-                  <td
-                    className={`count-cell ${completed.length > 0 ? 'clickable' : 'zero-cell'}`}
-                    onClick={() => completed.length > 0 && onStoryClick(completed, `${ownerName} - Completed`)}
-                  >
-                    {completed.length > 0 ? completed.length : ''}
-                  </td>
                 </tr>
               );
             })}
@@ -1904,6 +1904,7 @@ const OwnerBreakdownTable: React.FC<{
                 <tr className="total-row">
                   <td className="total-label"><strong>Total</strong></td>
                   <td className="count-cell"><strong>{totalStories > 0 ? totalStories : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalCompleted}</strong></td>
                   <td></td>
                   <td className="count-cell"><strong>{totalProductFeatures > 0 ? totalProductFeatures : ''}</strong></td>
                   <td className="count-cell"><strong>{totalBugFixes > 0 ? totalBugFixes : ''}</strong></td>
@@ -1914,7 +1915,6 @@ const OwnerBreakdownTable: React.FC<{
                   <td className="count-cell"><strong>{totalNiceToHave > 0 ? totalNiceToHave : ''}</strong></td>
                   <td className="count-cell"><strong>{totalCustomerEscalation > 0 ? totalCustomerEscalation : ''}</strong></td>
                   <td className="count-cell"><strong>{totalOther > 0 ? totalOther : ''}</strong></td>
-                  <td className="count-cell"><strong>{totalCompleted > 0 ? totalCompleted : ''}</strong></td>
                 </tr>
               );
             })()}
