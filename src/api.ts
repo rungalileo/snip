@@ -36,6 +36,11 @@ export const api = {
     return response.data;
   },
 
+  async getGroups(): Promise<Group[]> {
+    const response = await axios.get(`${API_BASE}/groups`);
+    return response.data;
+  },
+
   async getGroup(groupId: string): Promise<Group> {
     const response = await axios.get(`${API_BASE}/groups/${groupId}`);
     return response.data;
