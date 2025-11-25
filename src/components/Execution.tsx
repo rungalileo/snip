@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Iteration, Story } from '../types';
+import { Iteration, Story, Group } from '../types';
 import { api } from '../api';
 import { BarChart } from './BarChart';
 import { StackedBarChart } from './StackedBarChart';
@@ -105,31 +105,75 @@ const getFirstName = (name: string): string => {
   return words[0];
 };
 
-// Helper to normalize team names - merge observability variants
-const normalizeTeamName = (teamName: string): string => {
-  const lowerName = teamName.toLowerCase().trim();
-  // Match any variation of observability (with/without spaces, hyphens, etc.)
-  if (lowerName.startsWith('observability')) {
-    return 'Observability';
-  }
-  return teamName;
+
+// Team priority order for determining a person's team when they belong to multiple teams
+// Priority: Metrics / Core Workflows > Offline / Evals > Online / Monitoring > API & SDK >
+// Applied Data Science > Integrations > Platform > Developer Onboarding
+const TEAM_PRIORITY_ORDER = [
+  'Metrics / Core Workflows',
+  'Offline / Evals',
+  'Online / Monitoring',
+  'API & SDK',
+  'Applied Data Science',
+  'Integrations',
+  'Platform',
+  'Developer Onboarding',
+];
+
+// Helper to get the priority index of a team name
+const getTeamPriorityIndex = (teamName: string): number => {
+  const index = TEAM_PRIORITY_ORDER.findIndex(priorityTeam =>
+    teamName.toLowerCase().includes(priorityTeam.toLowerCase())
+  );
+  return index === -1 ? 999 : index;
 };
 
-// Helper to get team sort order
-const getTeamSortOrder = (teamName: string): number => {
-  const lowerName = teamName.toLowerCase().trim();
+// Helper to determine a person's team from their list of teams using priority order
+const getPersonTeam = (memberTeams: string[]): string | null => {
+  if (!memberTeams || memberTeams.length === 0) {
+    return null;
+  }
 
-  // Define team priority order
-  if (lowerName.includes('metrics')) return 0;
-  if (lowerName.startsWith('observability')) return 1;
-  if (lowerName.includes('integration')) return 2;
-  if (lowerName.includes('api') || lowerName.includes('sdk')) return 3;
-  if (lowerName.includes('developer') && lowerName.includes('onboarding')) return 4;
-  if (lowerName.includes('agent') && lowerName.includes('reliability')) return 5;
-  if (lowerName === 'unassigned') return 1000; // Always last
+  if (memberTeams.length === 1) {
+    return memberTeams[0];
+  }
 
-  // All other teams
-  return 100;
+  // Find the team with the highest priority (lowest priority index)
+  let highestPriorityTeam = memberTeams[0];
+  let highestPriorityIndex = getTeamPriorityIndex(highestPriorityTeam);
+
+  for (let i = 1; i < memberTeams.length; i++) {
+    const currentPriorityIndex = getTeamPriorityIndex(memberTeams[i]);
+    if (currentPriorityIndex < highestPriorityIndex) {
+      highestPriorityTeam = memberTeams[i];
+      highestPriorityIndex = currentPriorityIndex;
+    }
+  }
+
+  return highestPriorityTeam;
+};
+
+// Helper to get the team for a story based on its first owner
+const getStoryTeam = (story: Story, memberToTeamsMap: Map<string, string[]>, groupIdToNameMap: Map<string, string>): string => {
+  // If story has owners, use the first owner's team
+  if (story.owner_ids && story.owner_ids.length > 0) {
+    const firstOwnerId = story.owner_ids[0];
+    const memberTeams = memberToTeamsMap.get(firstOwnerId);
+
+    if (memberTeams && memberTeams.length > 0) {
+      const personTeam = getPersonTeam(memberTeams);
+      if (personTeam) {
+        return personTeam;
+      }
+    }
+  }
+
+  // Fall back to story.group_id
+  if (story.group_id) {
+    return groupIdToNameMap.get(story.group_id) || story.group_id;
+  }
+
+  return 'unassigned';
 };
 
 interface ExecutionProps {
@@ -154,6 +198,18 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   const [ticketsViewBy, setTicketsViewBy] = useState<'category' | 'owner' | 'team'>('team');
   const [statusViewBy, setStatusViewBy] = useState<'category' | 'owner' | 'team'>('team');
 
+  // Team mapping state
+  const [memberToTeamsMap, setMemberToTeamsMap] = useState<Map<string, string[]>>(new Map());
+  const [groupIdToNameMap, setGroupIdToNameMap] = useState<Map<string, string>>(new Map());
+
+  // Member names cache - fetch once and reuse across all components
+  const [memberNamesCache, setMemberNamesCache] = useState<Record<string, string>>({});
+
+  // Load groups and build member-to-teams mapping on mount
+  useEffect(() => {
+    loadGroups();
+  }, []);
+
   useEffect(() => {
     loadIterations();
   }, [selectedIterationName, includeAllIterations]);
@@ -163,6 +219,109 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       loadStories(selectedIterationId);
     }
   }, [selectedIterationId]);
+
+  // Fetch member names when stories change (only fetch new members)
+  useEffect(() => {
+    const fetchMemberNames = async () => {
+      // Get all unique owner IDs from stories
+      const allOwnerIds = new Set<string>();
+      stories.forEach(story => {
+        if (story.owner_ids && story.owner_ids.length > 0) {
+          story.owner_ids.forEach(ownerId => allOwnerIds.add(ownerId));
+        }
+      });
+
+      // Filter out members we already have cached
+      const newOwnerIds = Array.from(allOwnerIds).filter(
+        ownerId => ownerId !== 'unassigned' && !memberNamesCache[ownerId]
+      );
+
+      if (newOwnerIds.length === 0) return;
+
+      console.log(`Fetching ${newOwnerIds.length} new member names...`);
+
+      // Fetch all new member names in parallel
+      const memberPromises = newOwnerIds.map(async (ownerId) => {
+        try {
+          const member = await api.getMember(ownerId);
+          return { ownerId, name: member.profile?.name || 'Unknown' };
+        } catch (error) {
+          console.error('Error fetching member:', error);
+          return { ownerId, name: 'Unknown' };
+        }
+      });
+
+      const memberResults = await Promise.all(memberPromises);
+
+      // Update cache with new members
+      const newCache = { ...memberNamesCache };
+      memberResults.forEach(({ ownerId, name }) => {
+        newCache[ownerId] = name;
+      });
+      newCache['unassigned'] = 'Unassigned';
+
+      setMemberNamesCache(newCache);
+    };
+
+    if (stories.length > 0) {
+      fetchMemberNames();
+    }
+  }, [stories]);
+
+  const loadGroups = async () => {
+    try {
+      const allGroups = await api.getGroups();
+
+      // Filter to only the teams we care about for priority logic
+      const priorityTeamNames = [
+        'Metrics / Core Workflows',
+        'Offline / Evals',
+        'Online / Monitoring',
+        'API & SDK',
+        'Applied Data Science',
+        'Integrations',
+        'Platform',
+        'Developer Onboarding',
+      ];
+
+      const groups = allGroups.filter((group: Group) =>
+        priorityTeamNames.includes(group.name)
+      );
+
+      console.log('Filtered to priority teams:', groups.map(g => g.name));
+      console.log('Sample group structure:', groups[0]);
+
+      // Build member-to-teams mapping
+      const memberToTeams = new Map<string, string[]>();
+      const groupIdToName = new Map<string, string>();
+
+      // Also keep all group IDs and names for fallback (even non-priority teams)
+      allGroups.forEach((group: Group) => {
+        groupIdToName.set(group.id, group.name);
+      });
+
+      // Only process priority teams for member-to-teams mapping
+      groups.forEach((group: Group) => {
+        if (group.member_ids && group.member_ids.length > 0) {
+          group.member_ids.forEach((memberId: string) => {
+            if (!memberToTeams.has(memberId)) {
+              memberToTeams.set(memberId, []);
+            }
+            memberToTeams.get(memberId)!.push(group.name);
+          });
+        }
+      });
+
+      setMemberToTeamsMap(memberToTeams);
+      setGroupIdToNameMap(groupIdToName);
+
+      console.log('Member to teams mapping loaded:', memberToTeams.size, 'members in priority teams');
+      console.log('Sample member-to-teams mapping:', Array.from(memberToTeams.entries()).slice(0, 5));
+    } catch (err) {
+      console.error('Error loading groups:', err);
+      // Don't set error state, just log it - this is not critical
+    }
+  };
 
   const loadIterations = async () => {
     try {
@@ -369,12 +528,12 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
 
   const handleTeamBarClick = (teamId: string, label: string) => {
     // teamId might be comma-separated for merged teams
-    const teamIds = teamId.split(',');
+    const teamNames = teamId.split(',');
 
     // Filter stories by team(s) and label (using priority logic)
     const filteredStories = stories.filter(story => {
-      const storyTeamId = story.group_id || 'unassigned';
-      if (!teamIds.includes(storyTeamId)) return false;
+      const storyTeamName = getStoryTeam(story, memberToTeamsMap, groupIdToNameMap);
+      if (!teamNames.includes(storyTeamName)) return false;
 
       // Get the highest priority label for this story
       const priorityLabel = getHighestPriorityLabel(story.labels);
@@ -391,13 +550,13 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     const inMotionStates = ['In Development'];
 
     // teamId might be comma-separated for merged teams
-    const teamIds = teamId.split(',');
+    const teamNames = teamId.split(',');
 
     // Filter stories by team(s) and status
     const filteredStories = stories.filter(story => {
       // Check if story belongs to this team
-      const storyTeamId = story.group_id || 'unassigned';
-      if (!teamIds.includes(storyTeamId)) return false;
+      const storyTeamName = getStoryTeam(story, memberToTeamsMap, groupIdToNameMap);
+      if (!teamNames.includes(storyTeamName)) return false;
 
       // Check if story matches the status
       const stateName = story.workflow_state?.name || '';
@@ -616,29 +775,29 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     const teamData: Record<string, Record<string, number>> = {};
 
     stories.forEach(story => {
-      const teamId = story.group_id || 'unassigned';
+      const teamName = getStoryTeam(story, memberToTeamsMap, groupIdToNameMap);
 
-      if (!teamData[teamId]) {
-        teamData[teamId] = {};
+      if (!teamData[teamName]) {
+        teamData[teamName] = {};
         LABEL_CATEGORIES_WITH_OTHER.forEach(label => {
-          teamData[teamId][label] = 0;
+          teamData[teamName][label] = 0;
         });
       }
 
       // Get the highest priority label for this story (each story counted only once)
       const priorityLabel = getHighestPriorityLabel(story.labels);
-      teamData[teamId][priorityLabel] = (teamData[teamId][priorityLabel] || 0) + 1;
+      teamData[teamName][priorityLabel] = (teamData[teamName][priorityLabel] || 0) + 1;
     });
 
     // Convert to array format for rendering
-    return Object.entries(teamData).map(([teamId, counts]) => ({
-      teamId,
+    return Object.entries(teamData).map(([teamName, counts]) => ({
+      teamId: teamName, // Keep as teamId for backward compatibility
       data: LABEL_CATEGORIES_WITH_OTHER.map(label => ({
         label,
         count: counts[label] || 0,
       })),
     }));
-  }, [stories]);
+  }, [stories, memberToTeamsMap, groupIdToNameMap]);
 
   // Calculate status breakdown for each team (use same team list as teamLabelCounts)
   const statusByTeam = useMemo(() => {
@@ -649,8 +808,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     return teamLabelCounts.map(({ teamId }) => {
       // Filter stories for this team
       const teamStories = stories.filter(story => {
-        const storyTeamId = story.group_id || 'unassigned';
-        return storyTeamId === teamId;
+        const storyTeamName = getStoryTeam(story, memberToTeamsMap, groupIdToNameMap);
+        return storyTeamName === teamId;
       });
 
       let completedCount = 0;
@@ -676,7 +835,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
         totalCount: teamStories.length,
       };
     });
-  }, [stories, teamLabelCounts]);
+  }, [stories, teamLabelCounts, memberToTeamsMap, groupIdToNameMap]);
 
   // Get max count across all charts for consistent scale
   const maxCount = useMemo(() => {
@@ -711,9 +870,23 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       const ownerId = story.owner_ids && story.owner_ids.length > 0
         ? story.owner_ids[0]
         : 'unassigned';
-      const teamId = story.group_id || 'unassigned';
 
       if (!ownerMap[ownerId]) {
+        // Determine team for this owner
+        let teamId: string;
+        if (ownerId === 'unassigned') {
+          teamId = 'unassigned';
+        } else {
+          const memberTeams = memberToTeamsMap.get(ownerId);
+          if (memberTeams && memberTeams.length > 0) {
+            const personTeam = getPersonTeam(memberTeams);
+            teamId = personTeam || (story.group_id ? (groupIdToNameMap.get(story.group_id) || story.group_id) : 'unassigned');
+          } else {
+            // Fall back to story's group_id
+            teamId = story.group_id ? (groupIdToNameMap.get(story.group_id) || story.group_id) : 'unassigned';
+          }
+        }
+
         ownerMap[ownerId] = {
           ownerId,
           teamId,
@@ -762,7 +935,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     });
 
     return Object.values(ownerMap);
-  }, [stories]);
+  }, [stories, memberToTeamsMap, groupIdToNameMap]);
 
   // Calculate progress percentages based on workflow states
   const progressStats = useMemo(() => {
@@ -980,6 +1153,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
                         <StatusByOwnerWrapper
                           statusByOwner={statusByOwner}
                           onBarClick={handleStatusByOwnerClick}
+                          memberNamesCache={memberNamesCache}
                         />
                       </div>
                     )
@@ -1025,6 +1199,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
                         <OwnerStackedChartWrapper
                           ownerLabelCounts={ownerLabelCounts}
                           onBarClick={handleStackedBarClick}
+                          memberNamesCache={memberNamesCache}
                         />
                       </div>
                     )
@@ -1044,6 +1219,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
               {/* Owner breakdown table */}
               <OwnerBreakdownTable
                 ownerTableData={ownerTableData}
+                memberNamesCache={memberNamesCache}
                 onStoryClick={(stories, title) => {
                   setModalTitle(title);
                   setModalStories(stories);
@@ -1076,67 +1252,12 @@ const OwnerStackedChartWrapper: React.FC<{
     data: { label: string; count: number }[];
   }>;
   onBarClick: (ownerId: string, label: string) => void;
-}> = ({ ownerLabelCounts, onBarClick }) => {
-  const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Create a stable key from owner IDs to use as dependency
-  const ownerIdsKey = useMemo(() => {
-    return ownerLabelCounts.map(o => o.ownerId).sort().join(',');
-  }, [ownerLabelCounts]);
-
-  // Fetch all owner names
-  useEffect(() => {
-    let isCancelled = false;
-
-    const fetchOwnerNames = async () => {
-      setIsLoading(true);
-      const names: Record<string, string> = {};
-
-      for (const { ownerId } of ownerLabelCounts) {
-        if (isCancelled) return;
-
-        if (ownerId === 'unassigned') {
-          names[ownerId] = 'Unassigned';
-        } else {
-          try {
-            const member = await api.getMember(ownerId);
-            if (!isCancelled) {
-              names[ownerId] = member.profile?.name || 'Unknown';
-            }
-          } catch (error) {
-            console.error('Error fetching owner:', error);
-            if (!isCancelled) {
-              names[ownerId] = 'Unknown';
-            }
-          }
-        }
-      }
-
-      if (!isCancelled) {
-        setOwnerNames(names);
-        setIsLoading(false);
-      }
-    };
-
-    if (ownerLabelCounts.length > 0) {
-      fetchOwnerNames();
-    } else {
-      setIsLoading(false);
-    }
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [ownerIdsKey]);
-
-  if (isLoading) {
-    return <div>Loading owner data...</div>;
-  }
+  memberNamesCache: Record<string, string>;
+}> = ({ ownerLabelCounts, onBarClick, memberNamesCache }) => {
 
   // Transform data for stacked bar chart
   const stackedData = ownerLabelCounts.map(({ ownerId, data }) => {
-    const ownerName = ownerNames[ownerId] || 'Unknown';
+    const ownerName = memberNamesCache[ownerId] || 'Unknown';
     const totalCount = data.reduce((sum, item) => sum + item.count, 0);
     const initials = getInitials(ownerName);
 
@@ -1168,67 +1289,12 @@ const StatusByOwnerWrapper: React.FC<{
     totalCount: number;
   }>;
   onBarClick: (ownerId: string, ownerName: string, status: 'completed' | 'inMotion' | 'notStarted') => void;
-}> = ({ statusByOwner, onBarClick }) => {
-  const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Create a stable key from owner IDs to use as dependency
-  const ownerIdsKey = useMemo(() => {
-    return statusByOwner.map(o => o.ownerId).sort().join(',');
-  }, [statusByOwner]);
-
-  // Fetch all owner names
-  useEffect(() => {
-    let isCancelled = false;
-
-    const fetchOwnerNames = async () => {
-      setIsLoading(true);
-      const names: Record<string, string> = {};
-
-      for (const { ownerId } of statusByOwner) {
-        if (isCancelled) return;
-
-        if (ownerId === 'unassigned') {
-          names[ownerId] = 'Unassigned';
-        } else {
-          try {
-            const member = await api.getMember(ownerId);
-            if (!isCancelled) {
-              names[ownerId] = member.profile?.name || 'Unknown';
-            }
-          } catch (error) {
-            console.error('Error fetching owner:', error);
-            if (!isCancelled) {
-              names[ownerId] = 'Unknown';
-            }
-          }
-        }
-      }
-
-      if (!isCancelled) {
-        setOwnerNames(names);
-        setIsLoading(false);
-      }
-    };
-
-    if (statusByOwner.length > 0) {
-      fetchOwnerNames();
-    } else {
-      setIsLoading(false);
-    }
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [ownerIdsKey]);
-
-  if (isLoading) {
-    return <div>Loading owner data...</div>;
-  }
+  memberNamesCache: Record<string, string>;
+}> = ({ statusByOwner, onBarClick, memberNamesCache }) => {
 
   // Transform data for status stacked bar chart
   const statusData = statusByOwner.map(({ ownerId, completedCount, inMotionCount, notStartedCount, totalCount }) => {
-    const ownerName = ownerNames[ownerId] || 'Unknown';
+    const ownerName = memberNamesCache[ownerId] || 'Unknown';
     const initials = getInitials(ownerName);
 
     return {
@@ -1266,107 +1332,25 @@ const TeamStackedChartWrapper: React.FC<{
   }>;
   onBarClick: (teamId: string, label: string) => void;
 }> = ({ teamLabelCounts, onBarClick }) => {
-  const [teamNames, setTeamNames] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
+  // teamId is actually the team name now, no need to fetch
+  // Transform data for stacked bar chart (no merging or custom sorting)
+  const stackedData = teamLabelCounts
+    .map(({ teamId, data }) => {
+      const teamName = teamId; // teamId is actually the team name
+      const totalCount = data.reduce((sum, item) => sum + item.count, 0);
 
-  // Create a stable key from team IDs to use as dependency
-  const teamIdsKey = useMemo(() => {
-    return teamLabelCounts.map(t => t.teamId).sort().join(',');
-  }, [teamLabelCounts]);
-
-  // Fetch all team names
-  useEffect(() => {
-    let isCancelled = false;
-
-    const fetchTeamNames = async () => {
-      setIsLoading(true);
-      const names: Record<string, string> = {};
-
-      for (const { teamId } of teamLabelCounts) {
-        if (isCancelled) return;
-
-        if (teamId === 'unassigned') {
-          names[teamId] = 'Unassigned';
-        } else {
-          try {
-            const group = await api.getGroup(teamId);
-            if (!isCancelled) {
-              names[teamId] = group.name || 'Unknown';
-            }
-          } catch (error) {
-            console.error('Error fetching team:', error);
-            if (!isCancelled) {
-              names[teamId] = 'Unknown';
-            }
-          }
-        }
-      }
-
-      if (!isCancelled) {
-        setTeamNames(names);
-        setIsLoading(false);
-      }
-    };
-
-    if (teamLabelCounts.length > 0) {
-      fetchTeamNames();
-    } else {
-      setIsLoading(false);
-    }
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [teamIdsKey]);
-
-  if (isLoading) {
-    return <div>Loading team data...</div>;
-  }
-
-  // Transform data for stacked bar chart and merge observability variants
-  const mergedDataMap = new Map<string, {
-    teamIds: string[];
-    teamName: string;
-    labelCounts: { label: string; count: number }[];
-    totalCount: number;
-  }>();
-
-  teamLabelCounts.forEach(({ teamId, data }) => {
-    const teamName = teamNames[teamId] || 'Unknown';
-    const normalizedName = normalizeTeamName(teamName);
-
-    if (mergedDataMap.has(normalizedName)) {
-      const existing = mergedDataMap.get(normalizedName)!;
-      existing.teamIds.push(teamId);
-      // Merge label counts
-      data.forEach((item, index) => {
-        existing.labelCounts[index].count += item.count;
-      });
-      existing.totalCount += data.reduce((sum, item) => sum + item.count, 0);
-    } else {
-      mergedDataMap.set(normalizedName, {
-        teamIds: [teamId],
-        teamName: normalizedName,
-        labelCounts: data.map(item => ({ ...item })),
-        totalCount: data.reduce((sum, item) => sum + item.count, 0),
-      });
-    }
-  });
-
-  const stackedData = Array.from(mergedDataMap.values())
-    .map(({ teamIds, teamName, labelCounts, totalCount }) => {
       return {
-        ownerId: teamIds.join(','), // Store all team IDs for click handling
+        ownerId: teamName, // Use team name for click handling
         ownerName: teamName,
         initials: teamName, // Use full team name instead of initials
-        labelCounts,
+        labelCounts: data,
         totalCount,
       };
     })
     .sort((a, b) => {
-      const orderA = getTeamSortOrder(a.ownerName);
-      const orderB = getTeamSortOrder(b.ownerName);
-      if (orderA !== orderB) return orderA - orderB;
+      // Sort unassigned last, then alphabetically
+      if (a.ownerName === 'unassigned') return 1;
+      if (b.ownerName === 'unassigned') return -1;
       return a.ownerName.localeCompare(b.ownerName);
     });
 
@@ -1390,102 +1374,16 @@ const StatusByTeamWrapper: React.FC<{
   }>;
   onBarClick: (teamId: string, teamName: string, status: 'completed' | 'inMotion' | 'notStarted') => void;
 }> = ({ statusByTeam, onBarClick }) => {
-  const [teamNames, setTeamNames] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
+  // teamId is actually the team name now, no need to fetch
+  // Transform data for status stacked bar chart (no merging or custom sorting)
+  const statusData = statusByTeam
+    .map(({ teamId, completedCount, inMotionCount, notStartedCount, totalCount }) => {
+      const teamName = teamId; // teamId is actually the team name
 
-  // Create a stable key from team IDs to use as dependency
-  const teamIdsKey = useMemo(() => {
-    return statusByTeam.map(t => t.teamId).sort().join(',');
-  }, [statusByTeam]);
-
-  // Fetch all team names
-  useEffect(() => {
-    let isCancelled = false;
-
-    const fetchTeamNames = async () => {
-      setIsLoading(true);
-      const names: Record<string, string> = {};
-
-      for (const { teamId } of statusByTeam) {
-        if (isCancelled) return;
-
-        if (teamId === 'unassigned') {
-          names[teamId] = 'Unassigned';
-        } else {
-          try {
-            const group = await api.getGroup(teamId);
-            if (!isCancelled) {
-              names[teamId] = group.name || 'Unknown';
-            }
-          } catch (error) {
-            console.error('Error fetching team:', error);
-            if (!isCancelled) {
-              names[teamId] = 'Unknown';
-            }
-          }
-        }
-      }
-
-      if (!isCancelled) {
-        setTeamNames(names);
-        setIsLoading(false);
-      }
-    };
-
-    if (statusByTeam.length > 0) {
-      fetchTeamNames();
-    } else {
-      setIsLoading(false);
-    }
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [teamIdsKey]);
-
-  if (isLoading) {
-    return <div>Loading team data...</div>;
-  }
-
-  // Transform data for status stacked bar chart and merge observability variants
-  const mergedStatusMap = new Map<string, {
-    teamIds: string[];
-    teamName: string;
-    completedCount: number;
-    inMotionCount: number;
-    notStartedCount: number;
-    totalCount: number;
-  }>();
-
-  statusByTeam.forEach(({ teamId, completedCount, inMotionCount, notStartedCount, totalCount }) => {
-    const teamName = teamNames[teamId] || 'Unknown';
-    const normalizedName = normalizeTeamName(teamName);
-
-    if (mergedStatusMap.has(normalizedName)) {
-      const existing = mergedStatusMap.get(normalizedName)!;
-      existing.teamIds.push(teamId);
-      existing.completedCount += completedCount;
-      existing.inMotionCount += inMotionCount;
-      existing.notStartedCount += notStartedCount;
-      existing.totalCount += totalCount;
-    } else {
-      mergedStatusMap.set(normalizedName, {
-        teamIds: [teamId],
-        teamName: normalizedName,
-        completedCount,
-        inMotionCount,
-        notStartedCount,
-        totalCount,
-      });
-    }
-  });
-
-  const statusData = Array.from(mergedStatusMap.values())
-    .map(({ teamIds, teamName, completedCount, inMotionCount, notStartedCount, totalCount }) => {
       return {
         label: teamName, // Use full team name instead of initials
         fullName: teamName,
-        ownerId: teamIds.join(','), // Store all team IDs for click handling
+        ownerId: teamName, // Use team name for click handling
         completedCount,
         inMotionCount,
         notStartedCount,
@@ -1493,9 +1391,9 @@ const StatusByTeamWrapper: React.FC<{
       };
     })
     .sort((a, b) => {
-      const orderA = getTeamSortOrder(a.fullName);
-      const orderB = getTeamSortOrder(b.fullName);
-      if (orderA !== orderB) return orderA - orderB;
+      // Sort unassigned last, then alphabetically
+      if (a.fullName === 'unassigned') return 1;
+      if (b.fullName === 'unassigned') return -1;
       return a.fullName.localeCompare(b.fullName);
     });
 
@@ -1531,92 +1429,18 @@ const OwnerBreakdownTable: React.FC<{
     other: Story[];
     completed: Story[];
   }>;
+  memberNamesCache: Record<string, string>;
   onStoryClick: (stories: Story[], title: string) => void;
-}> = ({ ownerTableData, onStoryClick }) => {
-  const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
-  const [teamNames, setTeamNames] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
+}> = ({ ownerTableData, memberNamesCache, onStoryClick }) => {
   const [sortBy, setSortBy] = useState<'owner' | 'team' | 'stories' | 'productFeatures' | 'bugFixes' | 'foundationWork' | 'smallImprovement' | 'task' | 'customerFeatureRequest' | 'niceToHave' | 'customerEscalation' | 'other' | 'completed'>('team');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  // Create stable keys for dependencies
-  const ownerIdsKey = useMemo(() => {
-    return ownerTableData.map(o => o.ownerId).sort().join(',');
-  }, [ownerTableData]);
-
-  const teamIdsKey = useMemo(() => {
-    return [...new Set(ownerTableData.map(o => o.teamId))].sort().join(',');
-  }, [ownerTableData]);
-
-  // Fetch owner and team names
-  useEffect(() => {
-    let isCancelled = false;
-
-    const fetchNames = async () => {
-      setIsLoading(true);
-      const owners: Record<string, string> = {};
-      const teams: Record<string, string> = {};
-
-      // Fetch owner names
-      for (const { ownerId } of ownerTableData) {
-        if (isCancelled) return;
-
-        if (ownerId === 'unassigned') {
-          owners[ownerId] = 'Unassigned';
-        } else {
-          try {
-            const member = await api.getMember(ownerId);
-            if (!isCancelled) {
-              owners[ownerId] = member.profile?.name || 'Unknown';
-            }
-          } catch (error) {
-            console.error('Error fetching owner:', error);
-            if (!isCancelled) {
-              owners[ownerId] = 'Unknown';
-            }
-          }
-        }
-      }
-
-      // Fetch team names
-      const uniqueTeamIds = [...new Set(ownerTableData.map(o => o.teamId))];
-      for (const teamId of uniqueTeamIds) {
-        if (isCancelled) return;
-
-        if (teamId === 'unassigned') {
-          teams[teamId] = 'Unassigned';
-        } else {
-          try {
-            const group = await api.getGroup(teamId);
-            if (!isCancelled) {
-              teams[teamId] = group.name || 'Unknown';
-            }
-          } catch (error) {
-            console.error('Error fetching team:', error);
-            if (!isCancelled) {
-              teams[teamId] = 'Unknown';
-            }
-          }
-        }
-      }
-
-      if (!isCancelled) {
-        setOwnerNames(owners);
-        setTeamNames(teams);
-        setIsLoading(false);
-      }
-    };
-
-    if (ownerTableData.length > 0) {
-      fetchNames();
-    } else {
-      setIsLoading(false);
-    }
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [ownerIdsKey, teamIdsKey]);
+  // Team names are already in teamId (no need to fetch)
+  const teamNames: Record<string, string> = {};
+  const uniqueTeamIds = [...new Set(ownerTableData.map(o => o.teamId))];
+  uniqueTeamIds.forEach(teamId => {
+    teamNames[teamId] = teamId; // teamId is already the team name
+  });
 
   const handleSort = (column: typeof sortBy) => {
     if (sortBy === column) {
@@ -1627,32 +1451,25 @@ const OwnerBreakdownTable: React.FC<{
     }
   };
 
-  if (isLoading) {
-    return <div className="owner-table-loading">Loading table data...</div>;
-  }
-
   // Sort table data
   const sortedData = [...ownerTableData].sort((a, b) => {
     let compareValue = 0;
 
     if (sortBy === 'owner') {
-      const nameA = ownerNames[a.ownerId] || 'Unknown';
-      const nameB = ownerNames[b.ownerId] || 'Unknown';
+      const nameA = memberNamesCache[a.ownerId] || 'Unknown';
+      const nameB = memberNamesCache[b.ownerId] || 'Unknown';
       compareValue = nameA.localeCompare(nameB);
     } else if (sortBy === 'team') {
       const teamA = teamNames[a.teamId] || 'Unknown';
       const teamB = teamNames[b.teamId] || 'Unknown';
-      const normalizedA = normalizeTeamName(teamA);
-      const normalizedB = normalizeTeamName(teamB);
 
-      // Use team sort order first
-      const orderA = getTeamSortOrder(normalizedA);
-      const orderB = getTeamSortOrder(normalizedB);
-
-      if (orderA !== orderB) {
-        compareValue = orderA - orderB;
+      // Sort unassigned last, then alphabetically
+      if (teamA === 'unassigned' && teamB !== 'unassigned') {
+        compareValue = 1;
+      } else if (teamA !== 'unassigned' && teamB === 'unassigned') {
+        compareValue = -1;
       } else {
-        compareValue = normalizedA.localeCompare(normalizedB);
+        compareValue = teamA.localeCompare(teamB);
       }
     } else if (sortBy === 'stories') {
       const totalA = a.productFeatures.length + a.bugFixes.length + a.foundationWork.length +
@@ -1801,9 +1618,8 @@ const OwnerBreakdownTable: React.FC<{
           </thead>
           <tbody>
             {sortedData.map(({ ownerId, teamId, productFeatures, bugFixes, foundationWork, smallImprovement, task, customerFeatureRequest, niceToHave, customerEscalation, other, completed }) => {
-              const ownerName = ownerNames[ownerId] || 'Unknown';
+              const ownerName = memberNamesCache[ownerId] || 'Unknown';
               const teamName = teamNames[teamId] || 'Unknown';
-              const normalizedTeamName = normalizeTeamName(teamName);
               const totalStories = productFeatures.length + bugFixes.length + foundationWork.length +
                                    smallImprovement.length + task.length + customerFeatureRequest.length +
                                    niceToHave.length + customerEscalation.length + other.length;
@@ -1825,7 +1641,7 @@ const OwnerBreakdownTable: React.FC<{
                   >
                     {completed.length}
                   </td>
-                  <td className="team-cell">{normalizedTeamName}</td>
+                  <td className="team-cell">{teamName}</td>
                   <td
                     className={`count-cell ${productFeatures.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => productFeatures.length > 0 && onStoryClick(productFeatures, `${ownerName} - Product Features`)}

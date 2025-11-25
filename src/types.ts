@@ -61,6 +61,7 @@ export interface Group {
   id: string;
   name: string;
   mention_name: string;
+  member_ids?: string[];
 }
 
 export interface Iteration {
