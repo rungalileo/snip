@@ -73,4 +73,5 @@ export interface Iteration {
   status: string;
   created_at: string;
   updated_at: string;
+  app_url?: string;
 }

@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 3001;
 if (process.env.NODE_ENV !== 'production') {
   app.use(cors());
 }
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -767,6 +767,306 @@ app.delete('/api/epics/bookmarks/:epicId', async (req, res) => {
   } catch (error) {
     console.error('Error removing epic bookmark:', error);
     res.status(500).json({ error: 'Failed to remove epic bookmark' });
+  }
+});
+
+// ===== AI REPORT GENERATION ENDPOINTS =====
+
+// Generate AI report for an iteration
+app.post('/api/report/generate', async (req, res) => {
+  try {
+    const { iterationId, stories, openaiKey } = req.body;
+
+    console.log(`Generating AI report for iteration ${iterationId}`);
+
+    if (!openaiKey) {
+      return res.status(400).json({ error: 'OpenAI API key is required' });
+    }
+
+    if (!stories || stories.length === 0) {
+      return res.status(400).json({ error: 'No stories provided' });
+    }
+
+    // Load the system prompt from config
+    const fs = await import('fs');
+    const configPath = path.join(__dirname, '../report-prompt-config.json');
+    const configData = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(configData);
+
+    // Fetch groups (teams) to enrich the data
+    const groupsResponse = await axios.get(`${SHORTCUT_API_BASE}/groups`, {
+      headers: shortcutHeaders,
+    });
+    const groups = groupsResponse.data;
+
+    // Fetch members to get owner information
+    const membersResponse = await axios.get(`${SHORTCUT_API_BASE}/members`, {
+      headers: shortcutHeaders,
+    });
+    const members = membersResponse.data;
+
+    // Create maps for quick lookup
+    const memberMap = new Map(members.map((m: any) => [m.id, m]));
+    const groupMap = new Map(groups.map((g: any) => [g.id, g]));
+
+    // Organize stories by team
+    const storiesByTeam: { [teamName: string]: any[] } = {};
+
+    stories.forEach((story: any) => {
+      // Get owner information
+      const owner = story.owner_ids && story.owner_ids.length > 0
+        ? memberMap.get(story.owner_ids[0])
+        : null;
+
+      // Get team from owner's group_ids
+      const teamId = owner?.group_ids?.[0];
+      const team = teamId ? groupMap.get(teamId) : null;
+      const teamName = team?.name || 'Unassigned';
+
+      if (!storiesByTeam[teamName]) {
+        storiesByTeam[teamName] = [];
+      }
+
+      storiesByTeam[teamName].push({
+        id: story.id,
+        name: story.name.length > 100 ? story.name.substring(0, 100) + '...' : story.name,
+        status: story.workflow_state?.name || 'Unknown',
+        owner: owner ? `${owner.profile.name}` : 'Unassigned',
+        labels: story.labels?.map((l: any) => l.name).slice(0, 5) || [], // Limit labels to 5
+      });
+    });
+
+    // Build context for AI - summarize to reduce token usage
+    const contextData = {
+      totalStories: stories.length,
+      teamBreakdown: Object.keys(storiesByTeam).map(teamName => {
+        const teamStories = storiesByTeam[teamName];
+        // Group stories by status for summary
+        const byStatus: { [status: string]: number } = {};
+        teamStories.forEach((story: any) => {
+          byStatus[story.status] = (byStatus[story.status] || 0) + 1;
+        });
+        
+        return {
+          team: teamName,
+          storyCount: teamStories.length,
+          statusBreakdown: byStatus,
+          // Only include top 10 stories per team (most important ones) to reduce token usage
+          keyStories: teamStories.slice(0, 10).map((s: any) => ({
+            name: s.name.substring(0, 80), // Further truncate to 80 chars
+            status: s.status,
+            owner: s.owner
+          }))
+        };
+      })
+    };
+
+    const userPrompt = `Generate a report for the current iteration with the following data:\n\n${JSON.stringify(contextData, null, 2)}`;
+
+    // Log approximate token count (rough estimate: 1 token ≈ 4 characters)
+    const approximateTokens = Math.ceil((config.systemPrompt.length + userPrompt.length) / 4);
+    console.log(`Approximate token count: ${approximateTokens} (system: ${Math.ceil(config.systemPrompt.length / 4)}, user: ${Math.ceil(userPrompt.length / 4)})`);
+
+    // Call OpenAI API
+    const openaiResponse = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: config.model,
+        messages: [
+          { role: 'system', content: config.systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: config.maxTokens,
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${openaiKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const report = openaiResponse.data.choices[0].message.content;
+
+    console.log('AI report generated successfully');
+    res.json({ report });
+  } catch (error: any) {
+    console.error('Error generating AI report:', error.response?.data || error.message);
+    res.status(500).json({
+      error: 'Failed to generate AI report',
+      details: error.response?.data?.error?.message || error.message
+    });
+  }
+});
+
+// Store report as a doc in Shortcut
+// Note: This updates an existing doc. You must create the doc manually in Shortcut first with the name "AI Report - {iterationName}"
+app.post('/api/report/store', async (req, res) => {
+  try {
+    const { iterationId, report, iterationName } = req.body;
+
+    console.log(`Storing report as doc for iteration ${iterationId}`);
+
+    if (!report) {
+      return res.status(400).json({ error: 'Report content is required' });
+    }
+
+    const docName = `AI Report - ${iterationName}`;
+    console.log(`Looking for existing doc with name: "${docName}"`);
+
+    // Step 1: List all docs to find the one with matching name
+    let docId: number | null = null;
+    try {
+      const listDocsResponse = await axios.get(
+        `${SHORTCUT_API_BASE}/documents`,
+        { headers: shortcutHeaders }
+      );
+
+      console.log(`Found ${listDocsResponse.data.length} docs`);
+      
+      // Find doc with matching name
+      const matchingDoc = listDocsResponse.data.find((doc: any) => 
+        doc.name === docName || doc.title === docName
+      );
+
+      if (matchingDoc) {
+        docId = matchingDoc.id || matchingDoc.entity_id;
+        console.log(`✅ Found existing doc: "${matchingDoc.name || matchingDoc.title}" (ID: ${docId})`);
+      } else {
+        console.error(`❌ ERROR: Could not find doc with name "${docName}"`);
+        console.error('Available doc names:', listDocsResponse.data.map((d: any) => d.name || d.title).slice(0, 10));
+        throw new Error(`Doc "${docName}" not found. Please create it manually in Shortcut first.`);
+      }
+    } catch (listError: any) {
+      console.error('Error listing docs:', listError.response?.data || listError.message);
+      throw new Error(`Failed to find doc: ${listError.response?.data?.message || listError.message}`);
+    }
+
+    if (!docId) {
+      throw new Error('Could not determine doc ID');
+    }
+
+    // Step 2: Update the doc with the report content
+    console.log(`Updating doc ${docId} with report content...`);
+    console.log('Report content length:', report.length);
+    console.log('Report preview (first 200 chars):', report.substring(0, 200));
+    
+    try {
+      // The Shortcut API uses 'title' and 'content' for documents
+      // Send the markdown content directly - Shortcut will handle the conversion
+      const updatePayload = {
+        title: docName,
+        content: report,
+      };
+
+      console.log('Update payload:', {
+        title: updatePayload.title,
+        contentLength: updatePayload.content.length,
+      });
+      console.log('Full payload being sent:', JSON.stringify(updatePayload, null, 2));
+
+      const updateDocResponse = await axios.put(
+        `${SHORTCUT_API_BASE}/documents/${docId}`,
+        updatePayload,
+        { headers: shortcutHeaders }
+      );
+
+      console.log('=== UPDATE RESPONSE ===');
+      console.log('Status:', updateDocResponse.status);
+      console.log('Response data:', JSON.stringify(updateDocResponse.data, null, 2));
+      console.log('======================');
+
+      const docUrl = updateDocResponse.data?.app_url
+        || updateDocResponse.data?.url
+        || `https://app.shortcut.com/galileo/write/doc/${docId}`;
+
+      // Verify the content was actually updated by fetching the doc again
+      console.log('Verifying update by fetching doc...');
+      try {
+        const verifyResponse = await axios.get(
+          `${SHORTCUT_API_BASE}/documents/${docId}`,
+          { headers: shortcutHeaders }
+        );
+        
+        const fetchedMarkdown = verifyResponse.data?.content_markdown;
+        const fetchedHtml = verifyResponse.data?.content_html;
+        
+        if (fetchedMarkdown) {
+          console.log('✅ Verified: Doc content_markdown was updated');
+          console.log('Fetched markdown length:', fetchedMarkdown.length);
+          console.log('Fetched markdown preview (first 200 chars):', fetchedMarkdown.substring(0, 200));
+          
+          // Check if content matches (accounting for escaping)
+          const reportStart = report.substring(0, 50).replace(/\*/g, '\\*');
+          if (fetchedMarkdown.includes(reportStart) || fetchedMarkdown.includes(report.substring(0, 50))) {
+            console.log('✅ Content matches what we sent');
+          } else {
+            console.warn('⚠️  Warning: Fetched content does not match sent content');
+            console.warn('Sent preview:', report.substring(0, 100));
+            console.warn('Fetched preview:', fetchedMarkdown.substring(0, 100));
+          }
+        } else if (fetchedHtml) {
+          console.log('✅ Verified: Doc content_html was updated');
+          console.log('Fetched HTML length:', fetchedHtml.length);
+        } else {
+          console.warn('⚠️  Warning: Could not verify content in fetched doc');
+          console.warn('Fetched doc keys:', Object.keys(verifyResponse.data || {}));
+          console.warn('Full fetched response:', JSON.stringify(verifyResponse.data, null, 2));
+        }
+      } catch (verifyError: any) {
+        console.warn('⚠️  Could not verify doc update:', verifyError.response?.data || verifyError.message);
+      }
+
+      // Check response
+      const updatedContent = updateDocResponse.data?.content_markdown || updateDocResponse.data?.content_html;
+      if (updatedContent) {
+        console.log('✅ Content in update response');
+        console.log('Updated content length:', updatedContent.length);
+      } else {
+        console.warn('⚠️  Warning: Update response does not contain content_markdown or content_html field');
+        console.warn('Response keys:', Object.keys(updateDocResponse.data || {}));
+      }
+
+      console.log('✅ Doc updated successfully!');
+      console.log('Doc ID:', docId);
+      console.log('Doc URL:', docUrl);
+
+      res.json({ 
+        doc: updateDocResponse.data,
+        docUrl: docUrl,
+        docId: docId,
+        updated: true,
+        contentLength: updatedContent?.length || report.length
+      });
+    } catch (updateError: any) {
+      console.error('Error updating doc:', updateError.response?.data || updateError.message);
+      console.error('Error status:', updateError.response?.status);
+      console.error('Error details:', JSON.stringify(updateError.response?.data, null, 2));
+      throw new Error(`Failed to update doc: ${updateError.response?.data?.message || updateError.message}`);
+    }
+  } catch (error: any) {
+    console.error('Error storing report:', error.response?.data || error.message);
+    res.status(500).json({
+      error: 'Failed to store report',
+      details: error.response?.data || error.message,
+      message: error.message
+    });
+  }
+});
+
+// Get iteration details (including URL)
+app.get('/api/iterations/:iterationId', async (req, res) => {
+  try {
+    const { iterationId } = req.params;
+    const response = await axios.get(`${SHORTCUT_API_BASE}/iterations/${iterationId}`, {
+      headers: shortcutHeaders,
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching iteration:', error);
+    res.status(500).json({ error: 'Failed to fetch iteration' });
   }
 });
 

@@ -108,4 +108,28 @@ export const api = {
   async removeEpicBookmark(epicId: number): Promise<void> {
     await axios.delete(`${API_BASE}/epics/bookmarks/${epicId}`);
   },
+
+  // AI Report APIs
+  async generateReport(iterationId: number, stories: Story[], openaiKey: string): Promise<string> {
+    const response = await axios.post(`${API_BASE}/report/generate`, {
+      iterationId,
+      stories,
+      openaiKey,
+    });
+    return response.data.report;
+  },
+
+  async storeReport(iterationId: number, report: string, iterationName: string): Promise<any> {
+    const response = await axios.post(`${API_BASE}/report/store`, {
+      iterationId,
+      report,
+      iterationName,
+    });
+    return response.data; // Return full response including docUrl and linkedToIteration
+  },
+
+  async getIteration(iterationId: number): Promise<Iteration> {
+    const response = await axios.get(`${API_BASE}/iterations/${iterationId}`);
+    return response.data;
+  },
 };
