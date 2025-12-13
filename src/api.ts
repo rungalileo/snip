@@ -164,12 +164,24 @@ export const api = {
                           reject(new Error(data.error + (data.details ? `: ${data.details}` : '')));
                           return Promise.resolve();
                         }
+                        // Check if final data contains report
+                        if (data.report) {
+                          resolve({
+                            report: data.report,
+                            metrics: data.metrics,
+                            team_metrics: data.team_metrics,
+                            generated_at: data.generated_at,
+                          });
+                          return Promise.resolve();
+                        }
                       } catch (e) {
                         console.error('Error parsing final SSE data:', e);
                       }
                     }
                   }
                 }
+                // If stream ends without report data, reject
+                reject(new Error('Stream ended without receiving report data'));
                 return Promise.resolve();
               }
 
@@ -187,7 +199,8 @@ export const api = {
                       return Promise.resolve();
                     }
 
-                    if (data.stage === 'complete' && data.report) {
+                    // If we receive report data, resolve the promise (final result)
+                    if (data.report) {
                       resolve({
                         report: data.report,
                         metrics: data.metrics,

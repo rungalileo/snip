@@ -62,6 +62,7 @@ export const AIReportModal: React.FC<AIReportModalProps> = ({
   const [selectedTeams, setSelectedTeams] = useState<Set<string>>(new Set());
   const [currentTeam, setCurrentTeam] = useState<string | null>(null);
   const [teamProgress, setTeamProgress] = useState<{ current: number; total: number } | null>(null);
+  const [progressSteps, setProgressSteps] = useState<Array<{ label: string; completed: boolean }>>([]);
 
   // Handle escape key to close modal
   useEffect(() => {
@@ -94,6 +95,7 @@ export const AIReportModal: React.FC<AIReportModalProps> = ({
       setCurrentStage('idle');
       setCurrentTeam(null);
       setTeamProgress(null);
+      setProgressSteps([]);
       loadTeams();
     }
   }, [isOpen]);
@@ -183,13 +185,59 @@ export const AIReportModal: React.FC<AIReportModalProps> = ({
     setError(null);
     setSuccess(false);
 
+    // Initialize progress steps: one for each team + executive summary
+    const selectedTeamsArray = Array.from(selectedTeams);
+    const initialSteps = [
+      ...selectedTeamsArray.map(team => ({ label: `Generate report for ${team}`, completed: false })),
+      { label: 'Generate executive summary', completed: false }
+    ];
+    setProgressSteps(initialSteps);
+
     try {
       // Call with progress callback and selected teams
-      await onGenerate(apiKey.trim(), Array.from(selectedTeams), (progress: { stage: string; teamName?: string; current?: number; total?: number }) => {
+      await onGenerate(apiKey.trim(), selectedTeamsArray, (progress: { stage: string; teamName?: string; current?: number; total?: number }) => {
         setCurrentStage(progress.stage as GenerationStage);
-        if (progress.teamName) {
+        
+        // Update progress steps based on stage and progress
+        if (progress.stage === 'generating_team' && progress.teamName) {
           setCurrentTeam(progress.teamName);
+          // When we start generating a team, mark the previous team as completed
+          // progress.current is 1-indexed, so when current=2, we're on team 2, and team 1 (index 0) is done
+          if (progress.current !== undefined && progress.current > 1) {
+            const completedTeamIndex = progress.current - 2; // previous team (0-indexed)
+            if (completedTeamIndex >= 0 && completedTeamIndex < selectedTeamsArray.length) {
+              setProgressSteps(prev => 
+                prev.map((step, index) => {
+                  if (index === completedTeamIndex) {
+                    return { ...step, completed: true };
+                  }
+                  return step;
+                })
+              );
+            }
+          }
+        } else if (progress.stage === 'generating_summary') {
+          // Mark all team steps as completed when starting summary (including the last one)
+          setProgressSteps(prev => 
+            prev.map((step, index) => {
+              if (index < selectedTeamsArray.length) {
+                return { ...step, completed: true };
+              }
+              return step;
+            })
+          );
+        } else if (progress.stage === 'storing' || progress.stage === 'complete') {
+          // Mark executive summary as completed
+          setProgressSteps(prev => 
+            prev.map((step, index) => {
+              if (index === selectedTeamsArray.length) {
+                return { ...step, completed: true };
+              }
+              return step;
+            })
+          );
         }
+        
         if (progress.current !== undefined && progress.total !== undefined) {
           setTeamProgress({ current: progress.current, total: progress.total });
         } else {
@@ -202,6 +250,8 @@ export const AIReportModal: React.FC<AIReportModalProps> = ({
       setCurrentTeam(null);
       setTeamProgress(null);
       setLoading(false); // Ensure loading is false when success is shown
+      // Mark all steps as completed
+      setProgressSteps(prev => prev.map(step => ({ ...step, completed: true })));
       // Auto-close will be handled by useEffect watching success state
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate report');
@@ -303,29 +353,26 @@ export const AIReportModal: React.FC<AIReportModalProps> = ({
               </div>
             </div>
 
-            {loading && (
+            {loading && !success && (
               <div className="progress-container">
                 <div className="progress-spinner">
                   <div className="spinner"></div>
                 </div>
                 <div className="progress-message">
                   {STAGE_MESSAGES[currentStage]}
-                  {currentTeam && (
-                    <div className="team-progress-info">
-                      Team: {currentTeam}
-                      {teamProgress && (
-                        <span className="team-progress-count">
-                          {' '}({teamProgress.current} of {teamProgress.total})
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {teamProgress && !currentTeam && (
-                    <div className="team-progress-info">
-                      Progress: {teamProgress.current} of {teamProgress.total} teams
-                    </div>
-                  )}
                 </div>
+                {progressSteps.length > 0 && (
+                  <div className="progress-steps">
+                    {progressSteps.map((step, index) => (
+                      <div key={index} className={`progress-step ${step.completed ? 'completed' : ''}`}>
+                        <span className="step-checkmark">
+                          {step.completed ? '✓' : '○'}
+                        </span>
+                        <span className="step-label">{step.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="progress-warning">
                   <small style={{ fontSize: '12px', display: 'block' }}>
                     You can either stay on this modal or close it - generation will continue in the background. 

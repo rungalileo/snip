@@ -300,6 +300,47 @@
   margin-top: 12px;
 }
 
+/* Progress Steps */
+.progress-steps {
+  margin-top: 16px;
+  margin-bottom: 12px;
+}
+
+.progress-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 14px;
+  color: #666;
+  transition: color 0.3s ease;
+}
+
+.progress-step.completed {
+  color: #2e7d32;
+}
+
+.step-checkmark {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+  color: #1976d2;
+  flex-shrink: 0;
+}
+
+.progress-step.completed .step-checkmark {
+  color: #2e7d32;
+  font-size: 18px;
+}
+
+.step-label {
+  flex: 1;
+}
+
 /* Team Selection */
 .teams-checkbox-container {
   max-height: 200px;
