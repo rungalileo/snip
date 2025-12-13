@@ -102,34 +102,24 @@ function App() {
     }
   };
 
-  const handleGenerateReport = async (apiKey: string, onProgress?: (stage: string) => void) => {
+  const handleGenerateReport = async (
+    apiKey: string,
+    selectedTeams: string[],
+    onProgress?: (progress: { stage: string; teamName?: string; current?: number; total?: number }) => void
+  ) => {
     if (!currentIterationId || !currentIterationName) {
       throw new Error('No iteration selected');
     }
 
     try {
-      // Update progress stages
-      if (onProgress) {
-        onProgress('preparing');
-
-        // Small delay to show the preparing stage
-        await new Promise(resolve => setTimeout(resolve, 500));
-        onProgress('generating');
-      }
-
-      // Generate and store in one call
+      // Generate and store in one call - progress is handled by SSE from the server
       const result = await api.generateReport(
         currentIterationId,
         currentIterationStories,
-        apiKey
+        apiKey,
+        selectedTeams,
+        onProgress
       );
-
-      if (onProgress) {
-        onProgress('calculating');
-        await new Promise(resolve => setTimeout(resolve, 300));
-        onProgress('storing');
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
 
       console.log('Report generated and stored successfully');
       console.log('Metrics:', result.metrics);

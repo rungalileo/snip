@@ -900,20 +900,102 @@ function calculateTeamMetrics(
   });
 }
 
+// Helper function to send SSE progress update
+function sendProgress(res: express.Response, stage: string, teamName?: string, current?: number, total?: number): void {
+  const progress = {
+    stage,
+    teamName,
+    current,
+    total,
+    timestamp: new Date().toISOString()
+  };
+  res.write(`data: ${JSON.stringify(progress)}\n\n`);
+}
+
+// Helper function to generate a report for a single team
+async function generateTeamReport(
+  teamName: string,
+  teamStories: any[],
+  config: any,
+  openaiKey: string
+): Promise<string> {
+  // Group stories by status for summary
+  const byStatus: { [status: string]: number } = {};
+  teamStories.forEach((story: any) => {
+    byStatus[story.status] = (byStatus[story.status] || 0) + 1;
+  });
+
+  const teamContextData = {
+    team: teamName,
+    storyCount: teamStories.length,
+    statusBreakdown: byStatus,
+    stories: teamStories.map((s: any) => ({
+      name: s.name,
+      description: s.description || '',
+      status: s.status,
+      owner: s.owner,
+      labels: s.labels
+    }))
+  };
+
+  const teamPrompt = `Generate a detailed report for the ${teamName} team for the current iteration. Analyze the stories below and provide deep insights into:\n- WHAT the team actually accomplished (based on completed story names and descriptions)\n- WHAT was left incomplete and why it matters\n- Key themes and patterns in the work\n- Strategic implications and insights\n\nTeam data:\n${JSON.stringify(teamContextData, null, 2)}`;
+
+  const openaiResponse = await axios.post(
+    'https://api.openai.com/v1/chat/completions',
+    {
+      model: config.model,
+      messages: [
+        { role: 'system', content: config.systemPrompt },
+        { role: 'user', content: teamPrompt }
+      ],
+      max_tokens: config.maxTokens,
+      temperature: 0.7,
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  return openaiResponse.data.choices[0].message.content;
+}
+
 // Generate AI report for an iteration
 app.post('/api/report/generate', async (req, res) => {
+  // Set up SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
   try {
-    const { iterationId, stories, openaiKey } = req.body;
+    const { iterationId, stories, openaiKey, selectedTeams } = req.body;
 
     console.log(`Generating AI report for iteration ${iterationId}`);
 
     if (!openaiKey) {
-      return res.status(400).json({ error: 'OpenAI API key is required' });
+      sendProgress(res, 'error', undefined, undefined, undefined);
+      res.write(`data: ${JSON.stringify({ error: 'OpenAI API key is required' })}\n\n`);
+      res.end();
+      return;
     }
 
     if (!stories || stories.length === 0) {
-      return res.status(400).json({ error: 'No stories provided' });
+      sendProgress(res, 'error', undefined, undefined, undefined);
+      res.write(`data: ${JSON.stringify({ error: 'No stories provided' })}\n\n`);
+      res.end();
+      return;
     }
+
+    if (!selectedTeams || !Array.isArray(selectedTeams) || selectedTeams.length === 0) {
+      sendProgress(res, 'error', undefined, undefined, undefined);
+      res.write(`data: ${JSON.stringify({ error: 'At least one team must be selected' })}\n\n`);
+      res.end();
+      return;
+    }
+
+    sendProgress(res, 'preparing');
 
     // Load the system prompt from config
     const fs = await import('fs');
@@ -942,7 +1024,6 @@ app.post('/api/report/generate', async (req, res) => {
 
     // Create maps for quick lookup
     const memberMap = new Map(members.map((m: any) => [m.id, m]));
-    const groupMap = new Map(groups.map((g: any) => [g.id, g]));
 
     // Build memberToTeamsMap and groupIdToNameMap (matches frontend logic)
     const memberToTeamsMap = new Map<string, string[]>();
@@ -978,54 +1059,67 @@ app.post('/api/report/generate', async (req, res) => {
         storiesByTeam[teamName] = [];
       }
 
+      const ownerName = owner && (owner as any).profile ? `${(owner as any).profile.name}` : 'Unassigned';
+
       storiesByTeam[teamName].push({
         id: story.id,
-        name: story.name.length > 100 ? story.name.substring(0, 100) + '...' : story.name,
+        name: story.name,
+        description: story.description || '',
         status: story.workflow_state?.name || 'Unknown',
-        owner: owner ? `${owner.profile.name}` : 'Unassigned',
+        owner: ownerName,
         labels: story.labels?.map((l: any) => l.name).slice(0, 5) || [], // Limit labels to 5
       });
     });
 
-    // Build context for AI - summarize to reduce token usage
-    const contextData = {
-      totalStories: stories.length,
-      teamBreakdown: Object.keys(storiesByTeam).map(teamName => {
-        const teamStories = storiesByTeam[teamName];
-        // Group stories by status for summary
-        const byStatus: { [status: string]: number } = {};
-        teamStories.forEach((story: any) => {
-          byStatus[story.status] = (byStatus[story.status] || 0) + 1;
-        });
-        
-        return {
+    // Filter to only selected teams
+    const selectedTeamsSet = new Set(selectedTeams);
+    console.log(`Generating reports for selected teams: ${selectedTeams.join(', ')}`);
+
+    // Generate report for each team
+    const teamReports: { team: string; report: string }[] = [];
+    const selectedTeamNames = selectedTeams.filter(teamName => storiesByTeam[teamName] && storiesByTeam[teamName].length > 0);
+
+    sendProgress(res, 'generating_teams', undefined, 0, selectedTeamNames.length);
+
+    for (let i = 0; i < selectedTeamNames.length; i++) {
+      const teamName = selectedTeamNames[i];
+      const teamStories = storiesByTeam[teamName];
+
+      if (!teamStories || teamStories.length === 0) {
+        console.log(`Skipping ${teamName} - no stories`);
+        continue;
+      }
+
+      sendProgress(res, 'generating_team', teamName, i + 1, selectedTeamNames.length);
+      console.log(`Generating report for team: ${teamName} (${i + 1}/${selectedTeamNames.length})`);
+
+      try {
+        const teamReport = await generateTeamReport(teamName, teamStories, config, openaiKey);
+        teamReports.push({ team: teamName, report: teamReport });
+        console.log(`✅ Report generated for ${teamName}`);
+      } catch (error: any) {
+        console.error(`Error generating report for ${teamName}:`, error.response?.data || error.message);
+        // Continue with other teams even if one fails
+        teamReports.push({
           team: teamName,
-          storyCount: teamStories.length,
-          statusBreakdown: byStatus,
-          // Only include top 10 stories per team (most important ones) to reduce token usage
-          keyStories: teamStories.slice(0, 10).map((s: any) => ({
-            name: s.name.substring(0, 80), // Further truncate to 80 chars
-            status: s.status,
-            owner: s.owner
-          }))
-        };
-      })
-    };
+          report: `Error generating report for ${teamName}: ${error.response?.data?.error?.message || error.message}`
+        });
+      }
+    }
 
-    const userPrompt = `Generate a report for the current iteration with the following data:\n\n${JSON.stringify(contextData, null, 2)}`;
+    // Generate executive summary from all team reports
+    sendProgress(res, 'generating_summary');
+    console.log('Generating executive summary from team reports...');
 
-    // Log approximate token count (rough estimate: 1 token ≈ 4 characters)
-    const approximateTokens = Math.ceil((config.systemPrompt.length + userPrompt.length) / 4);
-    console.log(`Approximate token count: ${approximateTokens} (system: ${Math.ceil(config.systemPrompt.length / 4)}, user: ${Math.ceil(userPrompt.length / 4)})`);
+    const summaryPrompt = `Generate an executive summary report for the current iteration based on the following team reports. Synthesize the insights from all teams and provide:\n\n1. Overall iteration summary and key outcomes\n2. Cross-team themes and patterns\n3. Strategic implications and insights\n4. What was accomplished across all teams\n5. What was left incomplete and why it matters\n\nTeam Reports:\n${teamReports.map(tr => `\n## ${tr.team}\n\n${tr.report}`).join('\n\n---\n\n')}\n\nGenerate a comprehensive executive summary that ties together all team insights.`;
 
-    // Call OpenAI API
-    const openaiResponse = await axios.post(
+    const summaryResponse = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
         model: config.model,
         messages: [
-          { role: 'system', content: config.systemPrompt },
-          { role: 'user', content: userPrompt }
+          { role: 'system', content: 'You are an executive iteration report generator. Synthesize team reports into a comprehensive executive summary.' },
+          { role: 'user', content: summaryPrompt }
         ],
         max_tokens: config.maxTokens,
         temperature: 0.7,
@@ -1038,13 +1132,20 @@ app.post('/api/report/generate', async (req, res) => {
       }
     );
 
-    const report = openaiResponse.data.choices[0].message.content;
+    const executiveSummary = summaryResponse.data.choices[0].message.content;
+
+    // Combine executive summary with team reports
+    const fullReport = `# Executive Summary\n\n${executiveSummary}\n\n---\n\n# Team Reports\n\n${teamReports.map(tr => `## ${tr.team}\n\n${tr.report}`).join('\n\n---\n\n')}`;
 
     console.log('AI report generated successfully');
+
+    sendProgress(res, 'calculating');
 
     // Calculate metrics for storage
     const overallMetrics = calculateMetrics(stories);
     const teamMetrics = calculateTeamMetrics(stories, memberToTeamsMap, groupIdToNameMap);
+
+    sendProgress(res, 'storing');
 
     // Get iteration name
     const iterationResponse = await axios.get(
@@ -1057,7 +1158,7 @@ app.post('/api/report/generate', async (req, res) => {
     const reportDoc = {
       iteration_id: iterationId,
       iteration_name: iterationName,
-      report_content: report,
+      report_content: fullReport,
       metrics: overallMetrics,
       team_metrics: teamMetrics,
       category_metrics: null,
@@ -1072,19 +1173,24 @@ app.post('/api/report/generate', async (req, res) => {
 
     console.log(`✅ Report stored in MongoDB for iteration ${iterationId} (${new Date().toISOString()})`);
 
-    // Return report with metrics
-    res.json({
-      report,
+    sendProgress(res, 'complete');
+
+    // Send final result
+    res.write(`data: ${JSON.stringify({
+      report: fullReport,
       metrics: overallMetrics,
       team_metrics: teamMetrics,
       generated_at: reportDoc.generated_at
-    });
+    })}\n\n`);
+    res.end();
   } catch (error: any) {
     console.error('Error generating AI report:', error.response?.data || error.message);
-    res.status(500).json({
+    sendProgress(res, 'error');
+    res.write(`data: ${JSON.stringify({
       error: 'Failed to generate AI report',
       details: error.response?.data?.error?.message || error.message
-    });
+    })}\n\n`);
+    res.end();
   }
 });
 
