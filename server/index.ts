@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 3001;
 if (process.env.NODE_ENV !== 'production') {
   app.use(cors());
 }
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -767,6 +767,507 @@ app.delete('/api/epics/bookmarks/:epicId', async (req, res) => {
   } catch (error) {
     console.error('Error removing epic bookmark:', error);
     res.status(500).json({ error: 'Failed to remove epic bookmark' });
+  }
+});
+
+// ===== AI REPORT GENERATION ENDPOINTS =====
+
+// Helper function: Calculate overall metrics from stories
+function calculateMetrics(stories: any[]) {
+  const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
+  const inMotionStates = ['In Development'];
+
+  const total = stories.length;
+  const completed = stories.filter(s => completedStates.includes(s.workflow_state?.name || '')).length;
+  const inMotion = stories.filter(s => inMotionStates.includes(s.workflow_state?.name || '')).length;
+  const notStarted = total - completed - inMotion;
+
+  return {
+    total_stories: total,
+    completed_count: completed,
+    in_motion_count: inMotion,
+    not_started_count: notStarted,
+    completed_percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+    in_motion_percentage: total > 0 ? Math.round((inMotion / total) * 100) : 0,
+    not_started_percentage: total > 0 ? Math.round((notStarted / total) * 100) : 0
+  };
+}
+
+// Team priority order (matches frontend logic)
+const TEAM_PRIORITY_ORDER = [
+  'Metrics / Core Workflows',
+  'Offline / Evals',
+  'Online / Monitoring',
+  'API & SDK',
+  'Applied Data Science',
+  'Integrations',
+  'Platform',
+  'Developer Onboarding',
+];
+
+// Helper: Get team priority index
+function getTeamPriorityIndex(teamName: string): number {
+  const index = TEAM_PRIORITY_ORDER.findIndex(priorityTeam =>
+    teamName.toLowerCase().includes(priorityTeam.toLowerCase())
+  );
+  return index === -1 ? 999 : index;
+}
+
+// Helper: Get person's team from their list of teams using priority order
+function getPersonTeam(memberTeams: string[]): string | null {
+  if (!memberTeams || memberTeams.length === 0) {
+    return null;
+  }
+
+  if (memberTeams.length === 1) {
+    return memberTeams[0];
+  }
+
+  // Find the team with the highest priority (lowest priority index)
+  let highestPriorityTeam = memberTeams[0];
+  let highestPriorityIndex = getTeamPriorityIndex(highestPriorityTeam);
+
+  for (let i = 1; i < memberTeams.length; i++) {
+    const currentPriorityIndex = getTeamPriorityIndex(memberTeams[i]);
+    if (currentPriorityIndex < highestPriorityIndex) {
+      highestPriorityTeam = memberTeams[i];
+      highestPriorityIndex = currentPriorityIndex;
+    }
+  }
+
+  return highestPriorityTeam;
+}
+
+// Helper: Get story team (matches frontend getStoryTeam logic)
+function getStoryTeam(
+  story: any,
+  memberToTeamsMap: Map<string, string[]>,
+  groupIdToNameMap: Map<string, string>
+): string {
+  // If story has owners, use the first owner's team
+  if (story.owner_ids && story.owner_ids.length > 0) {
+    const firstOwnerId = story.owner_ids[0];
+    const memberTeams = memberToTeamsMap.get(firstOwnerId);
+
+    if (memberTeams && memberTeams.length > 0) {
+      const personTeam = getPersonTeam(memberTeams);
+      if (personTeam) {
+        return personTeam;
+      }
+    }
+  }
+
+  // Fall back to story.group_id
+  if (story.group_id) {
+    return groupIdToNameMap.get(story.group_id) || story.group_id;
+  }
+
+  return 'unassigned';
+}
+
+// Helper function: Calculate team-level metrics
+function calculateTeamMetrics(
+  stories: any[],
+  memberToTeamsMap: Map<string, string[]>,
+  groupIdToNameMap: Map<string, string>
+) {
+  // Group stories by team using the same logic as frontend
+  const storiesByTeam: { [teamName: string]: any[] } = {};
+
+  stories.forEach(story => {
+    const teamName = getStoryTeam(story, memberToTeamsMap, groupIdToNameMap);
+
+    if (!storiesByTeam[teamName]) storiesByTeam[teamName] = [];
+    storiesByTeam[teamName].push(story);
+  });
+
+  // Calculate metrics per team
+  return Object.entries(storiesByTeam).map(([teamName, teamStories]) => {
+    const metrics = calculateMetrics(teamStories);
+
+    // Status breakdown
+    const statusBreakdown: { [status: string]: number } = {};
+    teamStories.forEach(story => {
+      const status = story.workflow_state?.name || 'Unknown';
+      statusBreakdown[status] = (statusBreakdown[status] || 0) + 1;
+    });
+
+    return {
+      team_name: teamName,
+      ...metrics,
+      status_breakdown: statusBreakdown
+    };
+  });
+}
+
+// Helper function to send SSE progress update
+function sendProgress(res: express.Response, stage: string, teamName?: string, current?: number, total?: number): void {
+  const progress = {
+    stage,
+    teamName,
+    current,
+    total,
+    timestamp: new Date().toISOString()
+  };
+  res.write(`data: ${JSON.stringify(progress)}\n\n`);
+}
+
+// Helper function to generate a report for a single team
+async function generateTeamReport(
+  teamName: string,
+  teamStories: any[],
+  config: any,
+  openaiKey: string
+): Promise<string> {
+  // Group stories by status for summary
+  const byStatus: { [status: string]: number } = {};
+  teamStories.forEach((story: any) => {
+    byStatus[story.status] = (byStatus[story.status] || 0) + 1;
+  });
+
+  const teamContextData = {
+    team: teamName,
+    storyCount: teamStories.length,
+    statusBreakdown: byStatus,
+    stories: teamStories.map((s: any) => ({
+      name: s.name,
+      description: s.description || '',
+      status: s.status,
+      owner: s.owner,
+      labels: s.labels
+    }))
+  };
+
+  const teamPrompt = `Generate a detailed report for the ${teamName} team for the current iteration. Analyze the stories below and provide deep insights into:\n- WHAT the team actually accomplished (based on completed story names and descriptions)\n- WHAT was left incomplete and why it matters\n- Key themes and patterns in the work\n- Strategic implications and insights\n\nTeam data:\n${JSON.stringify(teamContextData, null, 2)}`;
+
+  const openaiResponse = await axios.post(
+    'https://api.openai.com/v1/chat/completions',
+    {
+      model: config.model,
+      messages: [
+        { role: 'system', content: config.systemPrompt },
+        { role: 'user', content: teamPrompt }
+      ],
+      max_tokens: config.maxTokens,
+      temperature: 0.7,
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  return openaiResponse.data.choices[0].message.content;
+}
+
+// Generate AI report for an iteration
+app.post('/api/report/generate', async (req, res) => {
+  // Set up SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  try {
+    const { iterationId, stories, openaiKey, selectedTeams } = req.body;
+
+    console.log(`Generating AI report for iteration ${iterationId}`);
+
+    if (!openaiKey) {
+      sendProgress(res, 'error', undefined, undefined, undefined);
+      res.write(`data: ${JSON.stringify({ error: 'OpenAI API key is required' })}\n\n`);
+      res.end();
+      return;
+    }
+
+    if (!stories || stories.length === 0) {
+      sendProgress(res, 'error', undefined, undefined, undefined);
+      res.write(`data: ${JSON.stringify({ error: 'No stories provided' })}\n\n`);
+      res.end();
+      return;
+    }
+
+    if (!selectedTeams || !Array.isArray(selectedTeams) || selectedTeams.length === 0) {
+      sendProgress(res, 'error', undefined, undefined, undefined);
+      res.write(`data: ${JSON.stringify({ error: 'At least one team must be selected' })}\n\n`);
+      res.end();
+      return;
+    }
+
+    sendProgress(res, 'preparing');
+
+    // Load the system prompt from config
+    const fs = await import('fs');
+    const configPath = path.join(__dirname, '../report-prompt-config.json');
+    const configData = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(configData);
+
+    // Fetch groups (teams) to enrich the data
+    const groupsResponse = await axios.get(`${SHORTCUT_API_BASE}/groups`, {
+      headers: shortcutHeaders,
+    });
+    const allGroups = groupsResponse.data;
+
+    // Filter to only the teams we care about for priority logic (matches frontend)
+    const groups = allGroups.filter((group: any) =>
+      TEAM_PRIORITY_ORDER.includes(group.name)
+    );
+
+    console.log('Filtered to priority teams:', groups.map((g: any) => g.name));
+
+    // Fetch members to get owner information
+    const membersResponse = await axios.get(`${SHORTCUT_API_BASE}/members`, {
+      headers: shortcutHeaders,
+    });
+    const members = membersResponse.data;
+
+    // Create maps for quick lookup
+    const memberMap = new Map(members.map((m: any) => [m.id, m]));
+
+    // Build memberToTeamsMap and groupIdToNameMap (matches frontend logic)
+    const memberToTeamsMap = new Map<string, string[]>();
+    const groupIdToNameMap = new Map<string, string>();
+
+    groups.forEach((group: any) => {
+      // Build groupId to name map
+      groupIdToNameMap.set(group.id, group.name);
+
+      // Build member to teams map
+      if (group.member_ids && group.member_ids.length > 0) {
+        group.member_ids.forEach((memberId: string) => {
+          if (!memberToTeamsMap.has(memberId)) {
+            memberToTeamsMap.set(memberId, []);
+          }
+          memberToTeamsMap.get(memberId)!.push(group.name);
+        });
+      }
+    });
+
+    // Organize stories by team using the correct getStoryTeam logic
+    const storiesByTeam: { [teamName: string]: any[] } = {};
+
+    stories.forEach((story: any) => {
+      const teamName = getStoryTeam(story, memberToTeamsMap, groupIdToNameMap);
+
+      // Get owner information for display
+      const owner = story.owner_ids && story.owner_ids.length > 0
+        ? memberMap.get(story.owner_ids[0])
+        : null;
+
+      if (!storiesByTeam[teamName]) {
+        storiesByTeam[teamName] = [];
+      }
+
+      const ownerName = owner && (owner as any).profile ? `${(owner as any).profile.name}` : 'Unassigned';
+
+      storiesByTeam[teamName].push({
+        id: story.id,
+        name: story.name,
+        description: story.description || '',
+        status: story.workflow_state?.name || 'Unknown',
+        owner: ownerName,
+        labels: story.labels?.map((l: any) => l.name).slice(0, 5) || [], // Limit labels to 5
+      });
+    });
+
+    // Filter to only selected teams
+    const selectedTeamsSet = new Set(selectedTeams);
+    console.log(`Generating reports for selected teams: ${selectedTeams.join(', ')}`);
+
+    // Generate report for each team
+    const teamReports: { team: string; report: string }[] = [];
+    const selectedTeamNames = selectedTeams.filter(teamName => storiesByTeam[teamName] && storiesByTeam[teamName].length > 0);
+
+    sendProgress(res, 'generating_teams', undefined, 0, selectedTeamNames.length);
+
+    for (let i = 0; i < selectedTeamNames.length; i++) {
+      const teamName = selectedTeamNames[i];
+      const teamStories = storiesByTeam[teamName];
+
+      if (!teamStories || teamStories.length === 0) {
+        console.log(`Skipping ${teamName} - no stories`);
+        continue;
+      }
+
+      sendProgress(res, 'generating_team', teamName, i + 1, selectedTeamNames.length);
+      console.log(`Generating report for team: ${teamName} (${i + 1}/${selectedTeamNames.length})`);
+
+      try {
+        const teamReport = await generateTeamReport(teamName, teamStories, config, openaiKey);
+        teamReports.push({ team: teamName, report: teamReport });
+        console.log(`✅ Report generated for ${teamName}`);
+      } catch (error: any) {
+        console.error(`Error generating report for ${teamName}:`, error.response?.data || error.message);
+        // Continue with other teams even if one fails
+        teamReports.push({
+          team: teamName,
+          report: `Error generating report for ${teamName}: ${error.response?.data?.error?.message || error.message}`
+        });
+      }
+    }
+
+    // Generate executive summary from all team reports
+    sendProgress(res, 'generating_summary');
+    console.log('Generating executive summary from team reports...');
+
+    const summaryPrompt = `Generate an executive summary report for the current iteration based on the following team reports. IMPORTANT: Keep the summary to exactly 300 words or less.\n\nFocus on:\n\n1. Key Accomplishments: Highlight the most important achievements and deliverables that were successfully shipped across all teams\n2. What Couldn't Be Shipped: Clearly identify what was left incomplete, why it matters, and any blockers or dependencies\n3. Overall iteration summary and key outcomes\n4. Cross-team themes and patterns (if relevant)\n\nTeam Reports:\n${teamReports.map(tr => `\n## ${tr.team}\n\n${tr.report}`).join('\n\n---\n\n')}\n\nGenerate a concise executive summary (300 words maximum) that emphasizes key accomplishments and what couldn't be shipped.`;
+
+    const summaryResponse = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: config.model,
+        messages: [
+          { role: 'system', content: 'You are an executive iteration report generator. Synthesize team reports into a concise executive summary. Always stay within the word limit specified.' },
+          { role: 'user', content: summaryPrompt }
+        ],
+        max_tokens: 400, // ~300 words limit (approximately 1.3 tokens per word)
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${openaiKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const executiveSummary = summaryResponse.data.choices[0].message.content;
+
+    // Combine executive summary with team reports
+    const fullReport = `# Executive Summary\n\n${executiveSummary}\n\n---\n\n# Team Reports\n\n${teamReports.map(tr => `## ${tr.team}\n\n${tr.report}`).join('\n\n---\n\n')}`;
+
+    console.log('AI report generated successfully');
+
+    sendProgress(res, 'calculating');
+
+    // Calculate metrics for storage
+    const overallMetrics = calculateMetrics(stories);
+    const teamMetrics = calculateTeamMetrics(stories, memberToTeamsMap, groupIdToNameMap);
+
+    sendProgress(res, 'storing');
+
+    // Get iteration name
+    const iterationResponse = await axios.get(
+      `${SHORTCUT_API_BASE}/iterations/${iterationId}`,
+      { headers: shortcutHeaders }
+    );
+    const iterationName = iterationResponse.data.name;
+
+    // Build and store report document in MongoDB
+    const reportDoc = {
+      iteration_id: iterationId,
+      iteration_name: iterationName,
+      report_content: fullReport,
+      metrics: overallMetrics,
+      team_metrics: teamMetrics,
+      category_metrics: null,
+      velocity_data: null,
+      generated_at: new Date(),
+      model: config.model,
+      version: 1
+    };
+
+    // Insert new report (keeps all historical reports)
+    await db.collection('iteration_reports').insertOne(reportDoc);
+
+    console.log(`✅ Report stored in MongoDB for iteration ${iterationId} (${new Date().toISOString()})`);
+
+    sendProgress(res, 'complete');
+
+    // Send final result
+    res.write(`data: ${JSON.stringify({
+      report: fullReport,
+      metrics: overallMetrics,
+      team_metrics: teamMetrics,
+      generated_at: reportDoc.generated_at
+    })}\n\n`);
+    res.end();
+  } catch (error: any) {
+    console.error('Error generating AI report:', error.response?.data || error.message);
+    sendProgress(res, 'error');
+    res.write(`data: ${JSON.stringify({
+      error: 'Failed to generate AI report',
+      details: error.response?.data?.error?.message || error.message
+    })}\n\n`);
+    res.end();
+  }
+});
+
+// Get latest report for an iteration
+app.get('/api/report/:iterationId', async (req, res) => {
+  try {
+    const iterationId = parseInt(req.params.iterationId);
+
+    // Get the latest report (sort by generated_at descending, limit 1)
+    const reports = await db.collection('iteration_reports')
+      .find({ iteration_id: iterationId })
+      .sort({ generated_at: -1 })
+      .limit(1)
+      .toArray();
+
+    if (!reports || reports.length === 0) {
+      return res.status(404).json({
+        error: 'No report found for this iteration'
+      });
+    }
+
+    const report = reports[0];
+
+    res.json({
+      iteration_id: report.iteration_id,
+      iteration_name: report.iteration_name,
+      report_content: report.report_content,
+      metrics: report.metrics,
+      team_metrics: report.team_metrics,
+      generated_at: report.generated_at
+    });
+  } catch (error) {
+    console.error('Error fetching report:', error);
+    res.status(500).json({ error: 'Failed to fetch report' });
+  }
+});
+
+// Get report history for an iteration
+app.get('/api/report/:iterationId/history', async (req, res) => {
+  try {
+    const iterationId = parseInt(req.params.iterationId);
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    const reports = await db.collection('iteration_reports')
+      .find({ iteration_id: iterationId })
+      .sort({ generated_at: -1 })
+      .limit(limit)
+      .toArray();
+
+    res.json({
+      iteration_id: iterationId,
+      reports: reports.map(r => ({
+        report_content: r.report_content,
+        metrics: r.metrics,
+        team_metrics: r.team_metrics,
+        generated_at: r.generated_at
+      })),
+      total_count: reports.length
+    });
+  } catch (error) {
+    console.error('Error fetching report history:', error);
+    res.status(500).json({ error: 'Failed to fetch report history' });
+  }
+});
+
+// Get iteration details (including URL)
+app.get('/api/iterations/:iterationId', async (req, res) => {
+  try {
+    const { iterationId } = req.params;
+    const response = await axios.get(`${SHORTCUT_API_BASE}/iterations/${iterationId}`, {
+      headers: shortcutHeaders,
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching iteration:', error);
+    res.status(500).json({ error: 'Failed to fetch iteration' });
   }
 });
 

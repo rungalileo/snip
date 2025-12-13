@@ -179,9 +179,10 @@ const getStoryTeam = (story: Story, memberToTeamsMap: Map<string, string[]>, gro
 interface ExecutionProps {
   onStorySelect: (story: Story, stories: Story[]) => void;
   selectedIterationName?: string | null;
+  onIterationDataChange?: (iterationId: number | null, stories: Story[], iterationName: string | null) => void;
 }
 
-export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIterationName }) => {
+export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIterationName, onIterationDataChange }) => {
   const [iterations, setIterations] = useState<Iteration[]>([]);
   const [selectedIterationId, setSelectedIterationId] = useState<number | null>(null);
   const [stories, setStories] = useState<Story[]>([]);
@@ -219,6 +220,16 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       loadStories(selectedIterationId);
     }
   }, [selectedIterationId]);
+
+  // Notify parent component of iteration data changes
+  useEffect(() => {
+    if (onIterationDataChange) {
+      // Get the current iteration name
+      const currentIteration = iterations.find(it => it.id === selectedIterationId);
+      const iterationName = currentIteration?.name || null;
+      onIterationDataChange(selectedIterationId, stories, iterationName);
+    }
+  }, [selectedIterationId, stories, iterations, onIterationDataChange]);
 
   // Fetch member names when stories change (only fetch new members)
   useEffect(() => {
@@ -273,19 +284,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       const allGroups = await api.getGroups();
 
       // Filter to only the teams we care about for priority logic
-      const priorityTeamNames = [
-        'Metrics / Core Workflows',
-        'Offline / Evals',
-        'Online / Monitoring',
-        'API & SDK',
-        'Applied Data Science',
-        'Integrations',
-        'Platform',
-        'Developer Onboarding',
-      ];
-
       const groups = allGroups.filter((group: Group) =>
-        priorityTeamNames.includes(group.name)
+        TEAM_PRIORITY_ORDER.includes(group.name)
       );
 
       console.log('Filtered to priority teams:', groups.map(g => g.name));
