@@ -1111,17 +1111,17 @@ app.post('/api/report/generate', async (req, res) => {
     sendProgress(res, 'generating_summary');
     console.log('Generating executive summary from team reports...');
 
-    const summaryPrompt = `Generate an executive summary report for the current iteration based on the following team reports. Synthesize the insights from all teams and provide:\n\n1. Overall iteration summary and key outcomes\n2. Cross-team themes and patterns\n3. Strategic implications and insights\n4. What was accomplished across all teams\n5. What was left incomplete and why it matters\n\nTeam Reports:\n${teamReports.map(tr => `\n## ${tr.team}\n\n${tr.report}`).join('\n\n---\n\n')}\n\nGenerate a comprehensive executive summary that ties together all team insights.`;
+    const summaryPrompt = `Generate an executive summary report for the current iteration based on the following team reports. IMPORTANT: Keep the summary to exactly 300 words or less.\n\nFocus on:\n\n1. Key Accomplishments: Highlight the most important achievements and deliverables that were successfully shipped across all teams\n2. What Couldn't Be Shipped: Clearly identify what was left incomplete, why it matters, and any blockers or dependencies\n3. Overall iteration summary and key outcomes\n4. Cross-team themes and patterns (if relevant)\n\nTeam Reports:\n${teamReports.map(tr => `\n## ${tr.team}\n\n${tr.report}`).join('\n\n---\n\n')}\n\nGenerate a concise executive summary (300 words maximum) that emphasizes key accomplishments and what couldn't be shipped.`;
 
     const summaryResponse = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
         model: config.model,
         messages: [
-          { role: 'system', content: 'You are an executive iteration report generator. Synthesize team reports into a comprehensive executive summary.' },
+          { role: 'system', content: 'You are an executive iteration report generator. Synthesize team reports into a concise executive summary. Always stay within the word limit specified.' },
           { role: 'user', content: summaryPrompt }
         ],
-        max_tokens: config.maxTokens,
+        max_tokens: 400, // ~300 words limit (approximately 1.3 tokens per word)
         temperature: 0.7,
       },
       {
