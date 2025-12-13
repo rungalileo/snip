@@ -106,20 +106,28 @@ function App() {
     }
 
     try {
-      // Generate the report using OpenAI
-      const report = await api.generateReport(currentIterationId, currentIterationStories, apiKey);
-
-      // Store the report as a doc in Shortcut
-      const storeResult = await api.storeReport(currentIterationId, report, currentIterationName);
+      // Generate and store in one call
+      const result = await api.generateReport(
+        currentIterationId,
+        currentIterationStories,
+        apiKey
+      );
 
       console.log('Report generated and stored successfully');
-      console.log('Doc details:', storeResult);
-      
-      // Show the doc URL if available
-      if (storeResult.docUrl) {
-        console.log('📄 Doc created! Access it at:', storeResult.docUrl);
-        alert(`Report created successfully!\n\nDoc URL: ${storeResult.docUrl}\n\n${storeResult.linkedToIteration ? '✅ Linked to iteration' : '⚠️ Note: Doc may need to be manually linked to the iteration in Shortcut'}`);
-      }
+      console.log('Metrics:', result.metrics);
+
+      // Show success with metrics summary
+      alert(`Report generated successfully!
+
+Completed: ${result.metrics.completed_percentage}%
+In Motion: ${result.metrics.in_motion_percentage}%
+Not Started: ${result.metrics.not_started_percentage}%
+
+Total Stories: ${result.metrics.total_stories}
+Teams: ${result.team_metrics.length}
+
+Generated at: ${new Date(result.generated_at).toLocaleString()}`);
+
     } catch (err) {
       console.error('Failed to generate report:', err);
       throw err;
@@ -133,15 +141,29 @@ function App() {
     }
 
     try {
-      const iteration = await api.getIteration(currentIterationId);
-      if (iteration.app_url) {
-        window.open(iteration.app_url, '_blank');
+      const report = await api.getReport(currentIterationId);
+
+      // TODO: Display in a proper modal with markdown rendering
+      // For now, show in alert
+      alert(`Report for ${report.iteration_name}
+
+Generated: ${new Date(report.generated_at).toLocaleString()}
+
+Metrics:
+- Completed: ${report.metrics.completed_percentage}%
+- In Motion: ${report.metrics.in_motion_percentage}%
+- Not Started: ${report.metrics.not_started_percentage}%
+- Total Stories: ${report.metrics.total_stories}
+
+${report.report_content.substring(0, 500)}...`);
+
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        alert('No report has been generated for this iteration yet.');
       } else {
-        alert('Unable to open iteration');
+        console.error('Failed to load report:', err);
+        alert('Failed to load report');
       }
-    } catch (err) {
-      console.error('Failed to open iteration:', err);
-      alert('Failed to open iteration');
     }
   };
 

@@ -772,6 +772,60 @@ app.delete('/api/epics/bookmarks/:epicId', async (req, res) => {
 
 // ===== AI REPORT GENERATION ENDPOINTS =====
 
+// Helper function: Calculate overall metrics from stories
+function calculateMetrics(stories: any[]) {
+  const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
+  const inMotionStates = ['In Development'];
+
+  const total = stories.length;
+  const completed = stories.filter(s => completedStates.includes(s.workflow_state?.name || '')).length;
+  const inMotion = stories.filter(s => inMotionStates.includes(s.workflow_state?.name || '')).length;
+  const notStarted = total - completed - inMotion;
+
+  return {
+    total_stories: total,
+    completed_count: completed,
+    in_motion_count: inMotion,
+    not_started_count: notStarted,
+    completed_percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+    in_motion_percentage: total > 0 ? Math.round((inMotion / total) * 100) : 0,
+    not_started_percentage: total > 0 ? Math.round((notStarted / total) * 100) : 0
+  };
+}
+
+// Helper function: Calculate team-level metrics
+function calculateTeamMetrics(stories: any[], memberMap: Map<string, any>, groupMap: Map<string, any>) {
+  // Group stories by team
+  const storiesByTeam: { [teamName: string]: any[] } = {};
+
+  stories.forEach(story => {
+    const owner = story.owner_ids?.[0] ? memberMap.get(story.owner_ids[0]) : null;
+    const teamId = owner?.group_ids?.[0];
+    const teamName = teamId ? (groupMap.get(teamId)?.name || 'Unassigned') : 'Unassigned';
+
+    if (!storiesByTeam[teamName]) storiesByTeam[teamName] = [];
+    storiesByTeam[teamName].push(story);
+  });
+
+  // Calculate metrics per team
+  return Object.entries(storiesByTeam).map(([teamName, teamStories]) => {
+    const metrics = calculateMetrics(teamStories);
+
+    // Status breakdown
+    const statusBreakdown: { [status: string]: number } = {};
+    teamStories.forEach(story => {
+      const status = story.workflow_state?.name || 'Unknown';
+      statusBreakdown[status] = (statusBreakdown[status] || 0) + 1;
+    });
+
+    return {
+      team_name: teamName,
+      ...metrics,
+      status_breakdown: statusBreakdown
+    };
+  });
+}
+
 // Generate AI report for an iteration
 app.post('/api/report/generate', async (req, res) => {
   try {
@@ -890,7 +944,44 @@ app.post('/api/report/generate', async (req, res) => {
     const report = openaiResponse.data.choices[0].message.content;
 
     console.log('AI report generated successfully');
-    res.json({ report });
+
+    // Calculate metrics for storage
+    const overallMetrics = calculateMetrics(stories);
+    const teamMetrics = calculateTeamMetrics(stories, memberMap, groupMap);
+
+    // Get iteration name
+    const iterationResponse = await axios.get(
+      `${SHORTCUT_API_BASE}/iterations/${iterationId}`,
+      { headers: shortcutHeaders }
+    );
+    const iterationName = iterationResponse.data.name;
+
+    // Build and store report document in MongoDB
+    const reportDoc = {
+      iteration_id: iterationId,
+      iteration_name: iterationName,
+      report_content: report,
+      metrics: overallMetrics,
+      team_metrics: teamMetrics,
+      category_metrics: null,
+      velocity_data: null,
+      generated_at: new Date(),
+      model: config.model,
+      version: 1
+    };
+
+    // Insert new report (keeps all historical reports)
+    await db.collection('iteration_reports').insertOne(reportDoc);
+
+    console.log(`✅ Report stored in MongoDB for iteration ${iterationId} (${new Date().toISOString()})`);
+
+    // Return report with metrics
+    res.json({
+      report,
+      metrics: overallMetrics,
+      team_metrics: teamMetrics,
+      generated_at: reportDoc.generated_at
+    });
   } catch (error: any) {
     console.error('Error generating AI report:', error.response?.data || error.message);
     res.status(500).json({
@@ -900,158 +991,65 @@ app.post('/api/report/generate', async (req, res) => {
   }
 });
 
-// Store report as a doc in Shortcut
-// Note: This updates an existing doc. You must create the doc manually in Shortcut first with the name "AI Report - {iterationName}"
-app.post('/api/report/store', async (req, res) => {
+// Get latest report for an iteration
+app.get('/api/report/:iterationId', async (req, res) => {
   try {
-    const { iterationId, report, iterationName } = req.body;
+    const iterationId = parseInt(req.params.iterationId);
 
-    console.log(`Storing report as doc for iteration ${iterationId}`);
+    // Get the latest report (sort by generated_at descending, limit 1)
+    const reports = await db.collection('iteration_reports')
+      .find({ iteration_id: iterationId })
+      .sort({ generated_at: -1 })
+      .limit(1)
+      .toArray();
 
-    if (!report) {
-      return res.status(400).json({ error: 'Report content is required' });
-    }
-
-    const docName = `AI Report - ${iterationName}`;
-    console.log(`Looking for existing doc with name: "${docName}"`);
-
-    // Step 1: List all docs to find the one with matching name
-    let docId: number | null = null;
-    try {
-      const listDocsResponse = await axios.get(
-        `${SHORTCUT_API_BASE}/documents`,
-        { headers: shortcutHeaders }
-      );
-
-      console.log(`Found ${listDocsResponse.data.length} docs`);
-      
-      // Find doc with matching name
-      const matchingDoc = listDocsResponse.data.find((doc: any) => 
-        doc.name === docName || doc.title === docName
-      );
-
-      if (matchingDoc) {
-        docId = matchingDoc.id || matchingDoc.entity_id;
-        console.log(`✅ Found existing doc: "${matchingDoc.name || matchingDoc.title}" (ID: ${docId})`);
-      } else {
-        console.error(`❌ ERROR: Could not find doc with name "${docName}"`);
-        console.error('Available doc names:', listDocsResponse.data.map((d: any) => d.name || d.title).slice(0, 10));
-        throw new Error(`Doc "${docName}" not found. Please create it manually in Shortcut first.`);
-      }
-    } catch (listError: any) {
-      console.error('Error listing docs:', listError.response?.data || listError.message);
-      throw new Error(`Failed to find doc: ${listError.response?.data?.message || listError.message}`);
-    }
-
-    if (!docId) {
-      throw new Error('Could not determine doc ID');
-    }
-
-    // Step 2: Update the doc with the report content
-    console.log(`Updating doc ${docId} with report content...`);
-    console.log('Report content length:', report.length);
-    console.log('Report preview (first 200 chars):', report.substring(0, 200));
-    
-    try {
-      // The Shortcut API uses 'title' and 'content' for documents
-      // Send the markdown content directly - Shortcut will handle the conversion
-      const updatePayload = {
-        title: docName,
-        content: report,
-      };
-
-      console.log('Update payload:', {
-        title: updatePayload.title,
-        contentLength: updatePayload.content.length,
+    if (!reports || reports.length === 0) {
+      return res.status(404).json({
+        error: 'No report found for this iteration'
       });
-      console.log('Full payload being sent:', JSON.stringify(updatePayload, null, 2));
-
-      const updateDocResponse = await axios.put(
-        `${SHORTCUT_API_BASE}/documents/${docId}`,
-        updatePayload,
-        { headers: shortcutHeaders }
-      );
-
-      console.log('=== UPDATE RESPONSE ===');
-      console.log('Status:', updateDocResponse.status);
-      console.log('Response data:', JSON.stringify(updateDocResponse.data, null, 2));
-      console.log('======================');
-
-      const docUrl = updateDocResponse.data?.app_url
-        || updateDocResponse.data?.url
-        || `https://app.shortcut.com/galileo/write/doc/${docId}`;
-
-      // Verify the content was actually updated by fetching the doc again
-      console.log('Verifying update by fetching doc...');
-      try {
-        const verifyResponse = await axios.get(
-          `${SHORTCUT_API_BASE}/documents/${docId}`,
-          { headers: shortcutHeaders }
-        );
-        
-        const fetchedMarkdown = verifyResponse.data?.content_markdown;
-        const fetchedHtml = verifyResponse.data?.content_html;
-        
-        if (fetchedMarkdown) {
-          console.log('✅ Verified: Doc content_markdown was updated');
-          console.log('Fetched markdown length:', fetchedMarkdown.length);
-          console.log('Fetched markdown preview (first 200 chars):', fetchedMarkdown.substring(0, 200));
-          
-          // Check if content matches (accounting for escaping)
-          const reportStart = report.substring(0, 50).replace(/\*/g, '\\*');
-          if (fetchedMarkdown.includes(reportStart) || fetchedMarkdown.includes(report.substring(0, 50))) {
-            console.log('✅ Content matches what we sent');
-          } else {
-            console.warn('⚠️  Warning: Fetched content does not match sent content');
-            console.warn('Sent preview:', report.substring(0, 100));
-            console.warn('Fetched preview:', fetchedMarkdown.substring(0, 100));
-          }
-        } else if (fetchedHtml) {
-          console.log('✅ Verified: Doc content_html was updated');
-          console.log('Fetched HTML length:', fetchedHtml.length);
-        } else {
-          console.warn('⚠️  Warning: Could not verify content in fetched doc');
-          console.warn('Fetched doc keys:', Object.keys(verifyResponse.data || {}));
-          console.warn('Full fetched response:', JSON.stringify(verifyResponse.data, null, 2));
-        }
-      } catch (verifyError: any) {
-        console.warn('⚠️  Could not verify doc update:', verifyError.response?.data || verifyError.message);
-      }
-
-      // Check response
-      const updatedContent = updateDocResponse.data?.content_markdown || updateDocResponse.data?.content_html;
-      if (updatedContent) {
-        console.log('✅ Content in update response');
-        console.log('Updated content length:', updatedContent.length);
-      } else {
-        console.warn('⚠️  Warning: Update response does not contain content_markdown or content_html field');
-        console.warn('Response keys:', Object.keys(updateDocResponse.data || {}));
-      }
-
-      console.log('✅ Doc updated successfully!');
-      console.log('Doc ID:', docId);
-      console.log('Doc URL:', docUrl);
-
-      res.json({ 
-        doc: updateDocResponse.data,
-        docUrl: docUrl,
-        docId: docId,
-        updated: true,
-        contentLength: updatedContent?.length || report.length
-      });
-    } catch (updateError: any) {
-      console.error('Error updating doc:', updateError.response?.data || updateError.message);
-      console.error('Error status:', updateError.response?.status);
-      console.error('Error details:', JSON.stringify(updateError.response?.data, null, 2));
-      throw new Error(`Failed to update doc: ${updateError.response?.data?.message || updateError.message}`);
     }
-  } catch (error: any) {
-    console.error('Error storing report:', error.response?.data || error.message);
-    res.status(500).json({
-      error: 'Failed to store report',
-      details: error.response?.data || error.message,
-      message: error.message
+
+    const report = reports[0];
+
+    res.json({
+      iteration_id: report.iteration_id,
+      iteration_name: report.iteration_name,
+      report_content: report.report_content,
+      metrics: report.metrics,
+      team_metrics: report.team_metrics,
+      generated_at: report.generated_at
     });
+  } catch (error) {
+    console.error('Error fetching report:', error);
+    res.status(500).json({ error: 'Failed to fetch report' });
+  }
+});
+
+// Get report history for an iteration
+app.get('/api/report/:iterationId/history', async (req, res) => {
+  try {
+    const iterationId = parseInt(req.params.iterationId);
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    const reports = await db.collection('iteration_reports')
+      .find({ iteration_id: iterationId })
+      .sort({ generated_at: -1 })
+      .limit(limit)
+      .toArray();
+
+    res.json({
+      iteration_id: iterationId,
+      reports: reports.map(r => ({
+        report_content: r.report_content,
+        metrics: r.metrics,
+        team_metrics: r.team_metrics,
+        generated_at: r.generated_at
+      })),
+      total_count: reports.length
+    });
+  } catch (error) {
+    console.error('Error fetching report history:', error);
+    res.status(500).json({ error: 'Failed to fetch report history' });
   }
 });
 

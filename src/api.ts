@@ -110,22 +110,44 @@ export const api = {
   },
 
   // AI Report APIs
-  async generateReport(iterationId: number, stories: Story[], openaiKey: string): Promise<string> {
+  async generateReport(iterationId: number, stories: Story[], openaiKey: string): Promise<{
+    report: string;
+    metrics: any;
+    team_metrics: any[];
+    generated_at: string;
+  }> {
     const response = await axios.post(`${API_BASE}/report/generate`, {
       iterationId,
       stories,
       openaiKey,
     });
-    return response.data.report;
+    return response.data; // Now returns { report, metrics, team_metrics, generated_at }
   },
 
-  async storeReport(iterationId: number, report: string, iterationName: string): Promise<any> {
-    const response = await axios.post(`${API_BASE}/report/store`, {
-      iterationId,
-      report,
-      iterationName,
-    });
-    return response.data; // Return full response including docUrl and linkedToIteration
+  async getReport(iterationId: number): Promise<{
+    iteration_id: number;
+    iteration_name: string;
+    report_content: string;
+    metrics: any;
+    team_metrics: any[];
+    generated_at: string;
+  }> {
+    const response = await axios.get(`${API_BASE}/report/${iterationId}`);
+    return response.data;
+  },
+
+  async getReportHistory(iterationId: number, limit: number = 10): Promise<{
+    iteration_id: number;
+    reports: Array<{
+      report_content: string;
+      metrics: any;
+      team_metrics: any[];
+      generated_at: string;
+    }>;
+    total_count: number;
+  }> {
+    const response = await axios.get(`${API_BASE}/report/${iterationId}/history?limit=${limit}`);
+    return response.data;
   },
 
   async getIteration(iterationId: number): Promise<Iteration> {
