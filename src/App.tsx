@@ -331,6 +331,7 @@ function App() {
               setIsReportModalOpen(false);
             }}
             onGenerate={handleGenerateReport}
+            onViewReport={handleViewReport}
             iterationName={currentIterationName}
           />
         )}

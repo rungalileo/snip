@@ -5,6 +5,7 @@ interface AIReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onGenerate: (apiKey: string, onProgress?: (stage: string) => void) => Promise<void>;
+  onViewReport?: () => void;
   iterationName: string;
 }
 
@@ -29,6 +30,7 @@ export const AIReportModal: React.FC<AIReportModalProps> = ({
   isOpen,
   onClose,
   onGenerate,
+  onViewReport,
   iterationName,
 }) => {
   const [apiKey, setApiKey] = useState('');
@@ -87,13 +89,7 @@ export const AIReportModal: React.FC<AIReportModalProps> = ({
       setCurrentStage('complete');
       setSuccess(true);
 
-      // Close modal after success
-      setTimeout(() => {
-        onClose();
-        setApiKey('');
-        setSuccess(false);
-        setCurrentStage('idle');
-      }, 2000);
+      // Don't auto-close - let user click "View Report" or "Close"
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate report');
       setCurrentStage('idle');
@@ -163,27 +159,66 @@ export const AIReportModal: React.FC<AIReportModalProps> = ({
             )}
 
             {success && (
-              <div className="success-message">
-                ✓ Report generated successfully!
+              <div className="success-message-container">
+                <div className="success-message">
+                  ✓ Report generated successfully!
+                </div>
+                <p className="success-prompt">
+                  Click "View Report" below to see the generated report with all metrics and team breakdown.
+                </p>
               </div>
             )}
 
             <div className="modal-actions">
-              <button
-                type="button"
-                className="btn-cancel"
-                onClick={onClose}
-                disabled={loading}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn-generate"
-                disabled={loading || !apiKey.trim()}
-              >
-                {loading ? 'Generating...' : 'Generate Report'}
-              </button>
+              {success ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn-cancel"
+                    onClick={() => {
+                      onClose();
+                      setApiKey('');
+                      setSuccess(false);
+                      setCurrentStage('idle');
+                    }}
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-view-report"
+                    onClick={() => {
+                      if (onViewReport) {
+                        onViewReport();
+                      }
+                      onClose();
+                      setApiKey('');
+                      setSuccess(false);
+                      setCurrentStage('idle');
+                    }}
+                  >
+                    View Report
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn-cancel"
+                    onClick={onClose}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-generate"
+                    disabled={loading || !apiKey.trim()}
+                  >
+                    {loading ? 'Generating...' : 'Generate Report'}
+                  </button>
+                </>
+              )}
             </div>
           </form>
         </div>

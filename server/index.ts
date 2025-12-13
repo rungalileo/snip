@@ -793,15 +793,89 @@ function calculateMetrics(stories: any[]) {
   };
 }
 
+// Team priority order (matches frontend logic)
+const TEAM_PRIORITY_ORDER = [
+  'Metrics / Core Workflows',
+  'Offline / Evals',
+  'Online / Monitoring',
+  'API & SDK',
+  'Applied Data Science',
+  'Integrations',
+  'Platform',
+  'Developer Onboarding',
+];
+
+// Helper: Get team priority index
+function getTeamPriorityIndex(teamName: string): number {
+  const index = TEAM_PRIORITY_ORDER.findIndex(priorityTeam =>
+    teamName.toLowerCase().includes(priorityTeam.toLowerCase())
+  );
+  return index === -1 ? 999 : index;
+}
+
+// Helper: Get person's team from their list of teams using priority order
+function getPersonTeam(memberTeams: string[]): string | null {
+  if (!memberTeams || memberTeams.length === 0) {
+    return null;
+  }
+
+  if (memberTeams.length === 1) {
+    return memberTeams[0];
+  }
+
+  // Find the team with the highest priority (lowest priority index)
+  let highestPriorityTeam = memberTeams[0];
+  let highestPriorityIndex = getTeamPriorityIndex(highestPriorityTeam);
+
+  for (let i = 1; i < memberTeams.length; i++) {
+    const currentPriorityIndex = getTeamPriorityIndex(memberTeams[i]);
+    if (currentPriorityIndex < highestPriorityIndex) {
+      highestPriorityTeam = memberTeams[i];
+      highestPriorityIndex = currentPriorityIndex;
+    }
+  }
+
+  return highestPriorityTeam;
+}
+
+// Helper: Get story team (matches frontend getStoryTeam logic)
+function getStoryTeam(
+  story: any,
+  memberToTeamsMap: Map<string, string[]>,
+  groupIdToNameMap: Map<string, string>
+): string {
+  // If story has owners, use the first owner's team
+  if (story.owner_ids && story.owner_ids.length > 0) {
+    const firstOwnerId = story.owner_ids[0];
+    const memberTeams = memberToTeamsMap.get(firstOwnerId);
+
+    if (memberTeams && memberTeams.length > 0) {
+      const personTeam = getPersonTeam(memberTeams);
+      if (personTeam) {
+        return personTeam;
+      }
+    }
+  }
+
+  // Fall back to story.group_id
+  if (story.group_id) {
+    return groupIdToNameMap.get(story.group_id) || story.group_id;
+  }
+
+  return 'unassigned';
+}
+
 // Helper function: Calculate team-level metrics
-function calculateTeamMetrics(stories: any[], memberMap: Map<string, any>, groupMap: Map<string, any>) {
-  // Group stories by team
+function calculateTeamMetrics(
+  stories: any[],
+  memberToTeamsMap: Map<string, string[]>,
+  groupIdToNameMap: Map<string, string>
+) {
+  // Group stories by team using the same logic as frontend
   const storiesByTeam: { [teamName: string]: any[] } = {};
 
   stories.forEach(story => {
-    const owner = story.owner_ids?.[0] ? memberMap.get(story.owner_ids[0]) : null;
-    const teamId = owner?.group_ids?.[0];
-    const teamName = teamId ? (groupMap.get(teamId)?.name || 'Unassigned') : 'Unassigned';
+    const teamName = getStoryTeam(story, memberToTeamsMap, groupIdToNameMap);
 
     if (!storiesByTeam[teamName]) storiesByTeam[teamName] = [];
     storiesByTeam[teamName].push(story);
@@ -851,7 +925,14 @@ app.post('/api/report/generate', async (req, res) => {
     const groupsResponse = await axios.get(`${SHORTCUT_API_BASE}/groups`, {
       headers: shortcutHeaders,
     });
-    const groups = groupsResponse.data;
+    const allGroups = groupsResponse.data;
+
+    // Filter to only the teams we care about for priority logic (matches frontend)
+    const groups = allGroups.filter((group: any) =>
+      TEAM_PRIORITY_ORDER.includes(group.name)
+    );
+
+    console.log('Filtered to priority teams:', groups.map((g: any) => g.name));
 
     // Fetch members to get owner information
     const membersResponse = await axios.get(`${SHORTCUT_API_BASE}/members`, {
@@ -863,19 +944,35 @@ app.post('/api/report/generate', async (req, res) => {
     const memberMap = new Map(members.map((m: any) => [m.id, m]));
     const groupMap = new Map(groups.map((g: any) => [g.id, g]));
 
-    // Organize stories by team
+    // Build memberToTeamsMap and groupIdToNameMap (matches frontend logic)
+    const memberToTeamsMap = new Map<string, string[]>();
+    const groupIdToNameMap = new Map<string, string>();
+
+    groups.forEach((group: any) => {
+      // Build groupId to name map
+      groupIdToNameMap.set(group.id, group.name);
+
+      // Build member to teams map
+      if (group.member_ids && group.member_ids.length > 0) {
+        group.member_ids.forEach((memberId: string) => {
+          if (!memberToTeamsMap.has(memberId)) {
+            memberToTeamsMap.set(memberId, []);
+          }
+          memberToTeamsMap.get(memberId)!.push(group.name);
+        });
+      }
+    });
+
+    // Organize stories by team using the correct getStoryTeam logic
     const storiesByTeam: { [teamName: string]: any[] } = {};
 
     stories.forEach((story: any) => {
-      // Get owner information
+      const teamName = getStoryTeam(story, memberToTeamsMap, groupIdToNameMap);
+
+      // Get owner information for display
       const owner = story.owner_ids && story.owner_ids.length > 0
         ? memberMap.get(story.owner_ids[0])
         : null;
-
-      // Get team from owner's group_ids
-      const teamId = owner?.group_ids?.[0];
-      const team = teamId ? groupMap.get(teamId) : null;
-      const teamName = team?.name || 'Unassigned';
 
       if (!storiesByTeam[teamName]) {
         storiesByTeam[teamName] = [];
@@ -947,7 +1044,7 @@ app.post('/api/report/generate', async (req, res) => {
 
     // Calculate metrics for storage
     const overallMetrics = calculateMetrics(stories);
-    const teamMetrics = calculateTeamMetrics(stories, memberMap, groupMap);
+    const teamMetrics = calculateTeamMetrics(stories, memberToTeamsMap, groupIdToNameMap);
 
     // Get iteration name
     const iterationResponse = await axios.get(
