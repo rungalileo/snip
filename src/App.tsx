@@ -4,6 +4,7 @@ import { StoriesList } from './components/StoriesList';
 import { StoryModal } from './components/StoryModal';
 import { StoriesTableModal } from './components/StoriesTableModal';
 import { AIReportModal } from './components/AIReportModal';
+import { ReportViewModal } from './components/ReportViewModal';
 import { Execution } from './components/Execution';
 import { Epic, Story } from './types';
 import { api } from './api';
@@ -24,6 +25,7 @@ function App() {
 
   // AI Report state
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isViewReportModalOpen, setIsViewReportModalOpen] = useState(false);
   const [currentIterationId, setCurrentIterationId] = useState<number | null>(null);
   const [currentIterationStories, setCurrentIterationStories] = useState<Story[]>([]);
   const [currentIterationName, setCurrentIterationName] = useState<string | null>(null);
@@ -100,12 +102,21 @@ function App() {
     }
   };
 
-  const handleGenerateReport = async (apiKey: string) => {
+  const handleGenerateReport = async (apiKey: string, onProgress?: (stage: string) => void) => {
     if (!currentIterationId || !currentIterationName) {
       throw new Error('No iteration selected');
     }
 
     try {
+      // Update progress stages
+      if (onProgress) {
+        onProgress('preparing');
+
+        // Small delay to show the preparing stage
+        await new Promise(resolve => setTimeout(resolve, 500));
+        onProgress('generating');
+      }
+
       // Generate and store in one call
       const result = await api.generateReport(
         currentIterationId,
@@ -113,20 +124,15 @@ function App() {
         apiKey
       );
 
+      if (onProgress) {
+        onProgress('calculating');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        onProgress('storing');
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
       console.log('Report generated and stored successfully');
       console.log('Metrics:', result.metrics);
-
-      // Show success with metrics summary
-      alert(`Report generated successfully!
-
-Completed: ${result.metrics.completed_percentage}%
-In Motion: ${result.metrics.in_motion_percentage}%
-Not Started: ${result.metrics.not_started_percentage}%
-
-Total Stories: ${result.metrics.total_stories}
-Teams: ${result.team_metrics.length}
-
-Generated at: ${new Date(result.generated_at).toLocaleString()}`);
 
     } catch (err) {
       console.error('Failed to generate report:', err);
@@ -140,31 +146,12 @@ Generated at: ${new Date(result.generated_at).toLocaleString()}`);
       return;
     }
 
-    try {
-      const report = await api.getReport(currentIterationId);
+    // Open the report view modal
+    setIsViewReportModalOpen(true);
+  };
 
-      // TODO: Display in a proper modal with markdown rendering
-      // For now, show in alert
-      alert(`Report for ${report.iteration_name}
-
-Generated: ${new Date(report.generated_at).toLocaleString()}
-
-Metrics:
-- Completed: ${report.metrics.completed_percentage}%
-- In Motion: ${report.metrics.in_motion_percentage}%
-- Not Started: ${report.metrics.not_started_percentage}%
-- Total Stories: ${report.metrics.total_stories}
-
-${report.report_content.substring(0, 500)}...`);
-
-    } catch (err: any) {
-      if (err.response?.status === 404) {
-        alert('No report has been generated for this iteration yet.');
-      } else {
-        console.error('Failed to load report:', err);
-        alert('Failed to load report');
-      }
-    }
+  const handleFetchReportHistory = async (iterationId: number) => {
+    return await api.getReportHistory(iterationId, 10);
   };
 
   const handleMainViewChange = (newView: MainView) => {
@@ -355,6 +342,15 @@ ${report.report_content.substring(0, 500)}...`);
             <button onClick={() => setIsReportModalOpen(false)}>Close</button>
           </div>
         )}
+
+        {/* Report View Modal */}
+        <ReportViewModal
+          isOpen={isViewReportModalOpen}
+          onClose={() => setIsViewReportModalOpen(false)}
+          iterationId={currentIterationId}
+          iterationName={currentIterationName || ''}
+          onFetchReports={handleFetchReportHistory}
+        />
       </main>
     </div>
   );

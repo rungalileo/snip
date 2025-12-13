@@ -4,9 +4,26 @@ import './AIReportModal.css';
 interface AIReportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onGenerate: (apiKey: string) => Promise<void>;
+  onGenerate: (apiKey: string, onProgress?: (stage: string) => void) => Promise<void>;
   iterationName: string;
 }
+
+type GenerationStage =
+  | 'idle'
+  | 'preparing'
+  | 'generating'
+  | 'calculating'
+  | 'storing'
+  | 'complete';
+
+const STAGE_MESSAGES: Record<GenerationStage, string> = {
+  idle: '',
+  preparing: 'Preparing stories data...',
+  generating: 'Generating AI report with OpenAI...',
+  calculating: 'Calculating metrics and team statistics...',
+  storing: 'Storing report in database...',
+  complete: 'Report generated successfully!'
+};
 
 export const AIReportModal: React.FC<AIReportModalProps> = ({
   isOpen,
@@ -18,6 +35,7 @@ export const AIReportModal: React.FC<AIReportModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [currentStage, setCurrentStage] = useState<GenerationStage>('idle');
 
   // Handle escape key to close modal
   useEffect(() => {
@@ -38,6 +56,7 @@ export const AIReportModal: React.FC<AIReportModalProps> = ({
     if (isOpen) {
       setError(null);
       setSuccess(false);
+      setCurrentStage('idle');
     }
   }, [isOpen]);
 
@@ -60,7 +79,12 @@ export const AIReportModal: React.FC<AIReportModalProps> = ({
     setSuccess(false);
 
     try {
-      await onGenerate(apiKey.trim());
+      // Call with progress callback
+      await onGenerate(apiKey.trim(), (stage: string) => {
+        setCurrentStage(stage as GenerationStage);
+      });
+
+      setCurrentStage('complete');
       setSuccess(true);
 
       // Close modal after success
@@ -68,9 +92,11 @@ export const AIReportModal: React.FC<AIReportModalProps> = ({
         onClose();
         setApiKey('');
         setSuccess(false);
-      }, 1500);
+        setCurrentStage('idle');
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate report');
+      setCurrentStage('idle');
     } finally {
       setLoading(false);
     }
@@ -115,6 +141,20 @@ export const AIReportModal: React.FC<AIReportModalProps> = ({
                 Your API key will be used to generate the report and will not be stored.
               </div>
             </div>
+
+            {loading && (
+              <div className="progress-container">
+                <div className="progress-spinner">
+                  <div className="spinner"></div>
+                </div>
+                <div className="progress-message">
+                  {STAGE_MESSAGES[currentStage]}
+                </div>
+                <div className="progress-warning">
+                  ⚠️ Please do not close this browser window while generating the report
+                </div>
+              </div>
+            )}
 
             {error && (
               <div className="error-message">
