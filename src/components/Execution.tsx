@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Iteration, Story, Group } from '../types';
 import { api } from '../api';
 import { BarChart } from './BarChart';
@@ -199,6 +199,16 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   const [ticketsViewBy, setTicketsViewBy] = useState<'category' | 'owner' | 'team'>('team');
   const [statusViewBy, setStatusViewBy] = useState<'category' | 'owner' | 'team'>('team');
 
+  // Track if we've synced URL based on the selectedIterationName prop
+  const hasProcessedUrlParam = useRef(false);
+
+  // Read iteration name from URL immediately on mount to avoid waiting for prop
+  const initialUrlIterationName = useRef<string | null>(null);
+  if (initialUrlIterationName.current === null) {
+    const match = window.location.pathname.match(/^\/iteration\/([^/]+)$/);
+    initialUrlIterationName.current = match ? decodeURIComponent(match[1]) : '';
+  }
+
   // Team mapping state
   const [memberToTeamsMap, setMemberToTeamsMap] = useState<Map<string, string[]>>(new Map());
   const [groupIdToNameMap, setGroupIdToNameMap] = useState<Map<string, string>>(new Map());
@@ -230,6 +240,51 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       onIterationDataChange(selectedIterationId, stories, iterationName);
     }
   }, [selectedIterationId, stories, iterations, onIterationDataChange]);
+
+  // Sync URL with selected iteration
+  useEffect(() => {
+    if (selectedIterationId && iterations.length > 0) {
+      const currentIteration = iterations.find(it => it.id === selectedIterationId);
+      if (currentIteration) {
+        const iterationName = encodeURIComponent(currentIteration.name);
+        const newUrl = `/iteration/${iterationName}`;
+        const currentPath = window.location.pathname;
+
+        console.log('[URL Sync]', {
+          currentPath,
+          newUrl,
+          currentIterationName: currentIteration.name,
+          selectedIterationNameProp: selectedIterationName,
+          hasProcessed: hasProcessedUrlParam.current
+        });
+
+        // RULE: If we have a selectedIterationName prop and haven't processed it yet,
+        // ONLY update URL when we've selected that specific iteration
+        if (selectedIterationName && !hasProcessedUrlParam.current) {
+          if (currentIteration.name === selectedIterationName) {
+            // We've selected the correct iteration matching the URL parameter
+            console.log('[URL Sync] Marking as processed, iteration matches URL param');
+            hasProcessedUrlParam.current = true;
+            // Ensure URL is correct (use replaceState to avoid adding history entries)
+            if (currentPath !== newUrl) {
+              console.log('[URL Sync] Fixing URL with replaceState');
+              window.history.replaceState({}, '', newUrl);
+            }
+          } else {
+            console.log('[URL Sync] Skipping - waiting for correct iteration');
+          }
+          // Otherwise, don't update URL - wait for correct iteration to be selected
+          return;
+        }
+
+        // After processing URL param, or if no URL param was provided, update URL normally
+        if (currentPath !== newUrl) {
+          console.log('[URL Sync] Updating URL with pushState');
+          window.history.pushState({}, '', newUrl);
+        }
+      }
+    }
+  }, [selectedIterationId, iterations, selectedIterationName]);
 
   // Fetch member names when stories change (only fetch new members)
   useEffect(() => {
@@ -370,11 +425,18 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       if (sortedIterations.length > 0) {
         let iterationToSelect = null;
 
+        // Use selectedIterationName prop if available, otherwise use the one we read from URL on mount
+        const iterationNameToFind = selectedIterationName || (initialUrlIterationName.current || null);
+
+        console.log('[loadIterations] Available iterations:', sortedIterations.map(i => i.name));
+        console.log('[loadIterations] Looking for iteration:', iterationNameToFind, '(prop:', selectedIterationName, ', initial URL:', initialUrlIterationName.current, ')');
+
         // If iteration name is provided in URL, find and select it
-        if (selectedIterationName) {
+        if (iterationNameToFind) {
           iterationToSelect = sortedIterations.find(
-            iteration => iteration.name === selectedIterationName
+            iteration => iteration.name === iterationNameToFind
           );
+          console.log('[loadIterations] Found iteration from URL param?', !!iterationToSelect, iterationToSelect?.name);
         }
 
         // If no URL parameter or iteration not found, use default auto-select logic
@@ -388,6 +450,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
 
           // Select current iteration if found, otherwise select the first (most recent)
           iterationToSelect = currentIteration || sortedIterations[0];
+          console.log('[loadIterations] Using fallback iteration:', iterationToSelect.name);
         }
 
         setSelectedIterationId(iterationToSelect.id);
@@ -1004,34 +1067,23 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   return (
     <div className="execution-view">
       <div className="execution-header">
-        <div className="iteration-navigator">
-          <button
-            className="nav-arrow-btn"
-            onClick={handlePreviousIteration}
-            disabled={currentIterationIndex >= iterations.length - 1 || loadingStories}
-            title="Previous iteration"
+        <div className="iteration-selector">
+          <select
+            value={selectedIterationId || ''}
+            onChange={handleIterationChange}
+            disabled={loadingStories || iterations.length === 0}
+            className="iteration-dropdown"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6"></polyline>
-            </svg>
-          </button>
-          <div className="current-iteration">
-            {selectedIteration ? (
-              <span className="iteration-name">{selectedIteration.name}</span>
+            {iterations.length === 0 ? (
+              <option value="">No iterations available</option>
             ) : (
-              <span className="iteration-name">No iterations available</span>
+              iterations.map((iteration) => (
+                <option key={iteration.id} value={iteration.id}>
+                  {iteration.name}
+                </option>
+              ))
             )}
-          </div>
-          <button
-            className="nav-arrow-btn"
-            onClick={handleNextIteration}
-            disabled={currentIterationIndex <= 0 || loadingStories}
-            title="Next iteration"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </button>
+          </select>
         </div>
         <div className="iteration-filter">
           <label className="checkbox-label">
