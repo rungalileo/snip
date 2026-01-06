@@ -21,6 +21,8 @@ const LABEL_OPTIONS = [
   { name: 'SMALL IMPROVEMENT', color: '#00897b' },
   { name: 'CUSTOMER FEATURE REQUEST', color: '#7c4dff' },
   { name: 'NICE TO HAVE', color: '#78909c' },
+  { name: 'OPTIMIZATION', color: '#00acc1' },
+  { name: 'INTEGRATION WORK', color: '#ec407a' },
 ];
 
 export const StoryModal: React.FC<StoryModalProps> = ({

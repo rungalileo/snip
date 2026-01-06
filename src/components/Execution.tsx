@@ -750,6 +750,18 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     };
   }, [statusByCategory]);
 
+  // Calculate distribution by category (for Status by Category chart)
+  const categoryDistribution = useMemo(() => {
+    const totalTickets = statusByCategory.reduce((sum, item) => sum + item.totalCount, 0);
+    return statusByCategory
+      .map(item => ({
+        label: item.label,
+        count: item.totalCount,
+        percent: totalTickets > 0 ? Math.round((item.totalCount / totalTickets) * 100) : 0,
+      }))
+      .sort((a, b) => b.percent - a.percent);
+  }, [statusByCategory]);
+
   // Calculate label counts per owner
   const ownerLabelCounts = useMemo(() => {
     const ownerData: Record<string, Record<string, number>> = {};
@@ -1196,6 +1208,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
                           title=""
                           overallStats={categoryOverallStats}
                           onBarClick={handleStatusByCategoryClick}
+                          distribution={categoryDistribution}
                         />
                       </div>
                     )
@@ -1291,6 +1304,16 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
           onClose={() => setIsModalOpen(false)}
           onStorySelect={onStorySelect}
           bookmarkedIds={bookmarkedIds}
+          onStoryUpdate={(updatedStory) => {
+            // Update the story in modalStories
+            setModalStories(prev =>
+              prev.map(s => s.id === updatedStory.id ? updatedStory : s)
+            );
+            // Also update the story in the main stories list
+            setStories(prev =>
+              prev.map(s => s.id === updatedStory.id ? updatedStory : s)
+            );
+          }}
         />
       )}
     </div>
@@ -1322,11 +1345,23 @@ const OwnerStackedChartWrapper: React.FC<{
     };
   });
 
+  // Calculate distribution (percentage of tickets per owner)
+  const totalTickets = stackedData.reduce((sum, item) => sum + item.totalCount, 0);
+  const distribution = stackedData
+    .filter(item => item.totalCount > 0)
+    .map(item => ({
+      label: getFirstName(item.ownerName),
+      count: item.totalCount,
+      percent: totalTickets > 0 ? Math.round((item.totalCount / totalTickets) * 100) : 0,
+    }))
+    .sort((a, b) => b.percent - a.percent);
+
   return (
     <StackedBarChart
       data={stackedData}
       title="Tickets by Owner"
       onBarClick={onBarClick}
+      distribution={distribution}
     />
   );
 };
@@ -1360,6 +1395,17 @@ const StatusByOwnerWrapper: React.FC<{
     };
   });
 
+  // Calculate distribution (percentage of tickets per owner)
+  const totalTickets = statusData.reduce((sum, item) => sum + item.totalCount, 0);
+  const distribution = statusData
+    .filter(item => item.totalCount > 0)
+    .map(item => ({
+      label: getFirstName(item.fullName),
+      count: item.totalCount,
+      percent: totalTickets > 0 ? Math.round((item.totalCount / totalTickets) * 100) : 0,
+    }))
+    .sort((a, b) => b.percent - a.percent);
+
   const handleClick = (label: string, status: 'completed' | 'inMotion' | 'notStarted') => {
     const item = statusData.find(d => d.label === label);
     if (item) {
@@ -1372,6 +1418,7 @@ const StatusByOwnerWrapper: React.FC<{
       data={statusData}
       title="Status by Owner"
       onBarClick={handleClick}
+      distribution={distribution}
     />
   );
 };
@@ -1406,11 +1453,23 @@ const TeamStackedChartWrapper: React.FC<{
       return a.ownerName.localeCompare(b.ownerName);
     });
 
+  // Calculate distribution (percentage of tickets per team)
+  const totalTickets = stackedData.reduce((sum, item) => sum + item.totalCount, 0);
+  const distribution = stackedData
+    .filter(item => item.totalCount > 0)
+    .map(item => ({
+      label: item.ownerName,
+      count: item.totalCount,
+      percent: totalTickets > 0 ? Math.round((item.totalCount / totalTickets) * 100) : 0,
+    }))
+    .sort((a, b) => b.percent - a.percent);
+
   return (
     <StackedBarChart
       data={stackedData}
       title="Tickets by Team"
       onBarClick={onBarClick}
+      distribution={distribution}
     />
   );
 };
@@ -1449,6 +1508,17 @@ const StatusByTeamWrapper: React.FC<{
       return a.fullName.localeCompare(b.fullName);
     });
 
+  // Calculate distribution (percentage of tickets per team)
+  const totalTickets = statusData.reduce((sum, item) => sum + item.totalCount, 0);
+  const distribution = statusData
+    .filter(item => item.totalCount > 0)
+    .map(item => ({
+      label: item.fullName,
+      count: item.totalCount,
+      percent: totalTickets > 0 ? Math.round((item.totalCount / totalTickets) * 100) : 0,
+    }))
+    .sort((a, b) => b.percent - a.percent);
+
   const handleClick = (label: string, status: 'completed' | 'inMotion' | 'notStarted') => {
     const item = statusData.find(d => d.label === label);
     if (item) {
@@ -1461,6 +1531,7 @@ const StatusByTeamWrapper: React.FC<{
       data={statusData}
       title="Status by Team"
       onBarClick={handleClick}
+      distribution={distribution}
     />
   );
 };

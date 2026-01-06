@@ -131,3 +131,125 @@
   max-height: calc(90vh - 250px);
   overflow-y: auto;
 }
+
+/* Label popup styles */
+.stories-table-modal .story-row {
+  overflow: visible;
+}
+
+.stories-table-modal .col-labels {
+  position: relative;
+  overflow: visible;
+}
+
+.labels-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.add-label-icon {
+  width: 22px;
+  height: 22px;
+  border: 1px dashed #999;
+  background: transparent;
+  color: #666;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 0;
+}
+
+.add-label-icon:hover {
+  background: #e3f2fd;
+  border-color: #1976d2;
+  color: #1976d2;
+}
+
+.label-popup {
+  z-index: 500;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  padding: 16px;
+  min-width: 280px;
+  max-width: 320px;
+}
+
+.label-popup-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 12px;
+}
+
+.label-popup-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.label-popup-chip {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.label-popup-chip:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.label-popup-chip:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.label-popup-chip:disabled {
+  cursor: not-allowed;
+}
+
+.label-popup-chip.chip-added {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.label-popup-chip.chip-added:hover {
+  filter: none;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Spinner animation */
+.label-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: label-spin 0.6s linear infinite;
+}
+
+@keyframes label-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

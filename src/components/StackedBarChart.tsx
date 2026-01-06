@@ -9,10 +9,17 @@ interface StackedBarData {
   totalCount: number;
 }
 
+interface DistributionItem {
+  label: string;
+  count: number;
+  percent: number;
+}
+
 interface StackedBarChartProps {
   data: StackedBarData[];
   title?: string;
   onBarClick?: (ownerId: string, label: string) => void;
+  distribution?: DistributionItem[];
 }
 
 // Color palette for label types (matching BarChart)
@@ -28,7 +35,7 @@ const LABEL_COLORS: Record<string, string> = {
   'OTHER': 'linear-gradient(180deg, #9e9e9e 0%, #757575 100%)', // Gray for unlabeled/other
 };
 
-export const StackedBarChart: React.FC<StackedBarChartProps> = ({ data, title, onBarClick }) => {
+export const StackedBarChart: React.FC<StackedBarChartProps> = ({ data, title, onBarClick, distribution }) => {
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -44,6 +51,17 @@ export const StackedBarChart: React.FC<StackedBarChartProps> = ({ data, title, o
   return (
     <div className="stacked-bar-chart">
       {title && <h3 className="stacked-chart-title">{title}</h3>}
+
+      {distribution && distribution.length > 0 && (
+        <div className="chart-distribution">
+          {distribution.map((item, index) => (
+            <span key={index} className="distribution-item">
+              <span className="distribution-label">{item.label}</span>
+              <span className="distribution-percent">{item.percent}%</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="stacked-chart-wrapper">
         {/* Y-axis labels */}

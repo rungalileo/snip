@@ -1,13 +1,28 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Story } from '../types';
 import { useOwnerName } from '../hooks/useOwnerName';
 import { getPriority } from '../utils/storyUtils';
+import { api } from '../api';
+
+const LABEL_OPTIONS = [
+  { name: 'CUSTOMER ESCALATION', color: '#e53935' },
+  { name: 'BUG', color: '#fb8c00' },
+  { name: 'FOUNDATIONAL WORK', color: '#43a047' },
+  { name: 'PRODUCT FEATURE', color: '#1e88e5' },
+  { name: 'TASK', color: '#9c27b0' },
+  { name: 'SMALL IMPROVEMENT', color: '#00897b' },
+  { name: 'CUSTOMER FEATURE REQUEST', color: '#7c4dff' },
+  { name: 'NICE TO HAVE', color: '#78909c' },
+  { name: 'OPTIMIZATION', color: '#00acc1' },
+  { name: 'INTEGRATION WORK', color: '#ec407a' },
+];
 
 interface StoryRowProps {
   story: Story;
   onClick: () => void;
   formatDate: (date: string) => string;
   isBookmarked?: boolean;
+  onStoryUpdate?: (updatedStory: Story) => void;
 }
 
 // Helper function to get priority color
@@ -26,15 +41,74 @@ const getPriorityColor = (priority: string): string => {
   }
 };
 
-export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, isBookmarked }) => {
+export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, isBookmarked, onStoryUpdate }) => {
   const ownerId = story.owner_ids && story.owner_ids.length > 0 ? story.owner_ids[0] : undefined;
   const ownerName = useOwnerName(ownerId);
   const priority = getPriority(story);
   const priorityColor = getPriorityColor(priority);
 
+  const [showLabelPopup, setShowLabelPopup] = useState(false);
+  const [addingLabel, setAddingLabel] = useState<string | null>(null);
+  const [isHoveringLabels, setIsHoveringLabels] = useState(false);
+  const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
+  const popupRef = useRef<HTMLDivElement>(null);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+
   const handleLinkClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
+
+  const handleAddIconClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Calculate position based on button location
+    if (addButtonRef.current) {
+      const rect = addButtonRef.current.getBoundingClientRect();
+      setPopupPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+      });
+    }
+
+    setShowLabelPopup(true);
+  };
+
+  const hasLabel = (labelName: string) => {
+    return story.labels?.some((label) => label.name === labelName);
+  };
+
+  const handleAddLabel = async (e: React.MouseEvent, labelName: string) => {
+    e.stopPropagation();
+    if (hasLabel(labelName) || addingLabel) return;
+
+    try {
+      setAddingLabel(labelName);
+      const updatedStory = await api.addLabelToStory(story.id, labelName);
+      if (onStoryUpdate) {
+        onStoryUpdate(updatedStory);
+      }
+    } catch (error: any) {
+      console.error('Failed to add label:', error);
+      const errorMsg = error.response?.data?.details || error.message || 'Unknown error';
+      alert(`Failed to add label "${labelName}". Error: ${errorMsg}`);
+    } finally {
+      setAddingLabel(null);
+    }
+  };
+
+  // Close popup on Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showLabelPopup) {
+        setShowLabelPopup(false);
+      }
+    };
+
+    if (showLabelPopup) {
+      window.addEventListener('keydown', handleEscape);
+      return () => window.removeEventListener('keydown', handleEscape);
+    }
+  }, [showLabelPopup]);
 
   return (
     <div className="story-row" onClick={onClick}>
@@ -52,20 +126,71 @@ export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, 
       <div className="col-owner">
         <span className="owner-chip">{ownerName}</span>
       </div>
-      <div className="col-labels">
-        {story.labels && story.labels.length > 0 ? (
-          <div className="label-chips-row">
-            {story.labels.map((label) => (
-              <span
-                key={label.id}
-                className="label-chip-small"
-              >
-                {label.name}
-              </span>
-            ))}
+      <div
+        className="col-labels"
+        onMouseEnter={() => setIsHoveringLabels(true)}
+        onMouseLeave={() => setIsHoveringLabels(false)}
+      >
+        <div className="labels-content">
+          {story.labels && story.labels.length > 0 ? (
+            <div className="label-chips-row">
+              {story.labels.map((label) => (
+                <span
+                  key={label.id}
+                  className="label-chip-small"
+                >
+                  {label.name}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span className="no-labels">—</span>
+          )}
+          {isHoveringLabels && !showLabelPopup && (
+            <button
+              ref={addButtonRef}
+              className="add-label-icon"
+              onClick={handleAddIconClick}
+              title="Add label"
+            >
+              +
+            </button>
+          )}
+        </div>
+        {showLabelPopup && (
+          <div
+            className="label-popup"
+            ref={popupRef}
+            onClick={(e) => e.stopPropagation()}
+            onMouseLeave={() => setShowLabelPopup(false)}
+            style={{
+              position: 'fixed',
+              top: popupPosition.top,
+              left: popupPosition.left,
+            }}
+          >
+            <div className="label-popup-title">Add Label</div>
+            <div className="label-popup-chips">
+              {LABEL_OPTIONS.map((option) => (
+                <button
+                  key={option.name}
+                  className={`label-popup-chip ${hasLabel(option.name) ? 'chip-added' : ''}`}
+                  style={{ backgroundColor: option.color }}
+                  onClick={(e) => handleAddLabel(e, option.name)}
+                  disabled={hasLabel(option.name) || addingLabel !== null}
+                >
+                  {addingLabel === option.name ? (
+                    <span className="label-spinner"></span>
+                  ) : (
+                    <>
+                      {option.name}
+                      {hasLabel(option.name) && ' ✓'}
+                    </>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
-        ) : (
-          <span className="no-labels">—</span>
         )}
       </div>
       <div className="col-date">{formatDate(story.created_at)}</div>

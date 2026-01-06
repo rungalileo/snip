@@ -9,6 +9,7 @@ interface StoriesTableModalProps {
   onClose: () => void;
   onStorySelect: (story: Story, stories: Story[]) => void;
   bookmarkedIds: Set<number>;
+  onStoryUpdate?: (updatedStory: Story) => void;
 }
 
 export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
@@ -17,6 +18,7 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
   onClose,
   onStorySelect,
   bookmarkedIds,
+  onStoryUpdate,
 }) => {
   const [copiedLinks, setCopiedLinks] = React.useState(false);
 
@@ -92,6 +94,7 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
                     onClick={() => onStorySelect(story, stories)}
                     formatDate={formatDate}
                     isBookmarked={bookmarkedIds.has(story.id)}
+                    onStoryUpdate={onStoryUpdate}
                   />
                 ))}
               </div>

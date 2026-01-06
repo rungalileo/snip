@@ -11,6 +11,12 @@ interface StatusStackedBarData {
   totalCount: number;
 }
 
+interface DistributionItem {
+  label: string;
+  count: number;
+  percent: number;
+}
+
 interface StatusStackedBarChartProps {
   data: StatusStackedBarData[];
   title?: string;
@@ -20,6 +26,7 @@ interface StatusStackedBarChartProps {
     inMotionPercent: number;
     notStartedPercent: number;
   };
+  distribution?: DistributionItem[];
 }
 
 // Color palette for status types
@@ -29,7 +36,7 @@ const STATUS_COLORS = {
   notStarted: 'linear-gradient(180deg, #ef5350 0%, #e53935 100%)', // Red
 };
 
-export const StatusStackedBarChart: React.FC<StatusStackedBarChartProps> = ({ data, title, onBarClick, overallStats }) => {
+export const StatusStackedBarChart: React.FC<StatusStackedBarChartProps> = ({ data, title, onBarClick, overallStats, distribution }) => {
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -60,6 +67,17 @@ export const StatusStackedBarChart: React.FC<StatusStackedBarChartProps> = ({ da
             <span className="status-chip-label">Not Started</span>
             <span className="status-chip-value">{overallStats.notStartedPercent}%</span>
           </div>
+        </div>
+      )}
+
+      {distribution && distribution.length > 0 && (
+        <div className="chart-distribution">
+          {distribution.map((item, index) => (
+            <span key={index} className="distribution-item">
+              <span className="distribution-label">{item.label}</span>
+              <span className="distribution-percent">{item.percent}%</span>
+            </span>
+          ))}
         </div>
       )}
 
