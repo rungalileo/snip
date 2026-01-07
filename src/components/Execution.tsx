@@ -17,6 +17,8 @@ const LABEL_CATEGORIES = [
   'CUSTOMER FEATURE REQUEST',
   'NICE TO HAVE',
   'FOUNDATIONAL WORK',
+  'INTEGRATION WORK',
+  'OPTIMIZATION',
 ];
 
 // Add "Other" category for unlabeled or uncategorized stories
@@ -25,9 +27,11 @@ const LABEL_CATEGORIES_WITH_OTHER = [...LABEL_CATEGORIES, 'OTHER'];
 // Label priority order (higher index = higher priority)
 // Priority: Product feature > customer feature request > FOUNDATIONAL work > customer escalation > bug > nice to have > task etc.
 const LABEL_PRIORITY: Record<string, number> = {
-  'PRODUCT FEATURE': 7,
-  'CUSTOMER FEATURE REQUEST': 6,
-  'FOUNDATIONAL WORK': 5,
+  'PRODUCT FEATURE': 9,
+  'CUSTOMER FEATURE REQUEST': 8,
+  'FOUNDATIONAL WORK': 7,
+  'INTEGRATION WORK': 6,
+  'OPTIMIZATION': 5,
   'CUSTOMER ESCALATION': 4,
   'BUG': 3,
   'NICE TO HAVE': 2,
@@ -59,7 +63,7 @@ const getHighestPriorityLabel = (labels: Array<{ name: string }> | undefined): s
 
 // Helper function to get the first matching label for a story (for breakdown table)
 // Priority order for matching: PRODUCT FEATURE, BUG, FOUNDATIONAL WORK, SMALL IMPROVEMENT,
-// TASK, CUSTOMER FEATURE REQUEST, NICE TO HAVE, CUSTOMER ESCALATION
+// TASK, CUSTOMER FEATURE REQUEST, NICE TO HAVE, CUSTOMER ESCALATION, INTEGRATION WORK, OPTIMIZATION
 const BREAKDOWN_CATEGORY_ORDER = [
   'PRODUCT FEATURE',
   'BUG',
@@ -69,6 +73,8 @@ const BREAKDOWN_CATEGORY_ORDER = [
   'CUSTOMER FEATURE REQUEST',
   'NICE TO HAVE',
   'CUSTOMER ESCALATION',
+  'INTEGRATION WORK',
+  'OPTIMIZATION',
 ];
 
 const getFirstMatchingLabel = (labels: Array<{ name: string }> | undefined): string => {
