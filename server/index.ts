@@ -392,6 +392,195 @@ app.get('/api/iterations/:iterationId/stories', async (req, res) => {
   }
 });
 
+// Get planning stats for an iteration (planned vs unplanned stories)
+app.get('/api/iterations/:iterationId/planning-stats', async (req, res) => {
+  try {
+    const { iterationId } = req.params;
+    console.log(`Fetching planning stats for iteration ${iterationId}`);
+
+    // Fetch iteration details to get start_date
+    const iterationResponse = await axios.get(
+      `${SHORTCUT_API_BASE}/iterations/${iterationId}`,
+      { headers: shortcutHeaders }
+    );
+    const iteration = iterationResponse.data;
+    // Keep start_date as string (YYYY-MM-DD) to avoid timezone issues
+    const iterationStartDateStr = iteration.start_date; // e.g., "2026-01-05"
+
+    // Fetch stories for this iteration
+    const storiesResponse = await axios.get(
+      `${SHORTCUT_API_BASE}/iterations/${iterationId}/stories`,
+      { headers: shortcutHeaders }
+    );
+    const stories = storiesResponse.data;
+
+    if (stories.length === 0) {
+      return res.json({
+        planned: { count: 0, percent: 0, storyIds: [], completedCount: 0, completionRate: 0 },
+        unplanned: { count: 0, percent: 0, storyIds: [], completedCount: 0, completionRate: 0 },
+        iterationStartDate: iteration.start_date
+      });
+    }
+
+    // Fetch workflows to map workflow_state_id to state name
+    const workflowsResponse = await axios.get(`${SHORTCUT_API_BASE}/workflows`, {
+      headers: shortcutHeaders,
+    });
+    const workflowStateMap = new Map<number, string>();
+    workflowsResponse.data.forEach((workflow: any) => {
+      workflow.states.forEach((state: any) => {
+        workflowStateMap.set(state.id, state.name);
+      });
+    });
+
+    // Fetch history for each story in parallel
+    const historyResults = await Promise.all(
+      stories.map(async (story: any) => {
+        try {
+          const historyResponse = await axios.get(
+            `${SHORTCUT_API_BASE}/stories/${story.id}/history`,
+            { headers: shortcutHeaders }
+          );
+          const history = historyResponse.data;
+
+          // Find when this story was added to this iteration
+          // Look for a history entry where iteration_id changed to this iteration
+          let addedToIterationAt: Date | null = null;
+
+          for (const entry of history) {
+            for (const action of entry.actions || []) {
+              if (action.entity_type === 'story' && action.changes?.iteration_id) {
+                const newIterationId = action.changes.iteration_id.new;
+                if (newIterationId === parseInt(iterationId)) {
+                  addedToIterationAt = new Date(entry.changed_at);
+                  break;
+                }
+              }
+            }
+            if (addedToIterationAt) break;
+          }
+
+          // Also check if story was created directly in this iteration
+          // (no iteration_id change, but created with iteration_id set)
+          if (!addedToIterationAt) {
+            const createEntry = history.find((h: any) =>
+              h.actions?.some((a: any) => a.action === 'create' && a.entity_type === 'story')
+            );
+            if (createEntry) {
+              const createAction = createEntry.actions.find(
+                (a: any) => a.action === 'create' && a.entity_type === 'story'
+              );
+              // If story was created with this iteration_id, use creation date
+              if (createAction && story.iteration_id === parseInt(iterationId)) {
+                // Check if any later entry changed iteration_id TO this iteration
+                const hasIterationChange = history.some((h: any) =>
+                  h.actions?.some((a: any) =>
+                    a.entity_type === 'story' &&
+                    a.changes?.iteration_id?.new === parseInt(iterationId)
+                  )
+                );
+                if (!hasIterationChange) {
+                  // Story was created directly in this iteration
+                  addedToIterationAt = new Date(createEntry.changed_at);
+                }
+              }
+            }
+          }
+
+          return {
+            storyId: story.id,
+            addedToIterationAt
+          };
+        } catch (error) {
+          console.error(`Error fetching history for story ${story.id}:`, error);
+          // Default to planned if we can't determine
+          return {
+            storyId: story.id,
+            addedToIterationAt: null
+          };
+        }
+      })
+    );
+
+    // Categorize stories as planned or unplanned
+    // Day 1 of the sprint is considered "planned" since most tickets get added on day 1
+    const planned: number[] = [];
+    const unplanned: number[] = [];
+
+    // Helper to extract YYYY-MM-DD in Pacific time from a Date
+    const getDateStrPacific = (date: Date): string => {
+      // Convert to Pacific time and extract YYYY-MM-DD
+      const pacificDate = date.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+      return pacificDate; // Returns YYYY-MM-DD format
+    };
+
+    historyResults.forEach(result => {
+      if (!result.addedToIterationAt) {
+        // If we couldn't determine when it was added, count as planned
+        planned.push(result.storyId);
+      } else {
+        // Compare the date (YYYY-MM-DD in Pacific time) when story was added to iteration start date
+        // Story is "planned" if added on Day 1 (start date) or before
+        const addedDateStr = getDateStrPacific(result.addedToIterationAt);
+
+        if (addedDateStr <= iterationStartDateStr) {
+          planned.push(result.storyId);
+        } else {
+          unplanned.push(result.storyId);
+        }
+      }
+    });
+
+    const total = stories.length;
+    const plannedPercent = total > 0 ? Math.round((planned.length / total) * 100) : 0;
+    const unplannedPercent = total > 0 ? Math.round((unplanned.length / total) * 100) : 0;
+
+    // Debug: log a sample conversion
+    const sampleResult = historyResults.find(r => r.addedToIterationAt);
+    if (sampleResult) {
+      console.log(`Sample conversion: UTC=${sampleResult.addedToIterationAt.toISOString()} -> Pacific=${getDateStrPacific(sampleResult.addedToIterationAt)}, Sprint start=${iterationStartDateStr}`);
+    }
+    console.log(`Planning stats for iteration ${iterationId}: ${planned.length} planned, ${unplanned.length} unplanned`);
+
+    // Calculate completion rates for planned vs unplanned stories
+    const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
+
+    // Create a map of story id to workflow state name for quick lookup
+    const storyStateNameMap = new Map<number, string>();
+    stories.forEach((story: any) => {
+      const stateName = workflowStateMap.get(story.workflow_state_id) || '';
+      storyStateNameMap.set(story.id, stateName);
+    });
+
+    const plannedCompleted = planned.filter(id => completedStates.includes(storyStateNameMap.get(id) || '')).length;
+    const unplannedCompleted = unplanned.filter(id => completedStates.includes(storyStateNameMap.get(id) || '')).length;
+
+    const plannedCompletionRate = planned.length > 0 ? Math.round((plannedCompleted / planned.length) * 100) : 0;
+    const unplannedCompletionRate = unplanned.length > 0 ? Math.round((unplannedCompleted / unplanned.length) * 100) : 0;
+
+    res.json({
+      planned: {
+        count: planned.length,
+        percent: plannedPercent,
+        storyIds: planned,
+        completedCount: plannedCompleted,
+        completionRate: plannedCompletionRate
+      },
+      unplanned: {
+        count: unplanned.length,
+        percent: unplannedPercent,
+        storyIds: unplanned,
+        completedCount: unplannedCompleted,
+        completionRate: unplannedCompletionRate
+      },
+      iterationStartDate: iteration.start_date
+    });
+  } catch (error) {
+    console.error('Error fetching planning stats:', error);
+    res.status(500).json({ error: 'Failed to fetch planning stats' });
+  }
+});
+
 // Update story priority
 app.put('/api/stories/:storyId/priority', async (req, res) => {
   try {

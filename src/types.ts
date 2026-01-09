@@ -75,3 +75,21 @@ export interface Iteration {
   updated_at: string;
   app_url?: string;
 }
+
+export interface PlanningStats {
+  planned: {
+    count: number;
+    percent: number;
+    storyIds: number[];
+    completedCount: number;
+    completionRate: number;
+  };
+  unplanned: {
+    count: number;
+    percent: number;
+    storyIds: number[];
+    completedCount: number;
+    completionRate: number;
+  };
+  iterationStartDate: string;
+}

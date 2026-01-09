@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Epic, Story, Member, Iteration, Group } from './types';
+import { Epic, Story, Member, Iteration, Group, PlanningStats } from './types';
 
 const API_BASE = '/api';
 
@@ -263,6 +263,11 @@ export const api = {
 
   async getIteration(iterationId: number): Promise<Iteration> {
     const response = await axios.get(`${API_BASE}/iterations/${iterationId}`);
+    return response.data;
+  },
+
+  async getPlanningStats(iterationId: number): Promise<PlanningStats> {
+    const response = await axios.get(`${API_BASE}/iterations/${iterationId}/planning-stats`);
     return response.data;
   },
 };

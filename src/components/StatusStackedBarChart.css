@@ -57,6 +57,26 @@
   color: white;
 }
 
+.status-chip-divider {
+  width: 1px;
+  height: 24px;
+  background: #d0d0d0;
+  margin: 0 4px;
+  align-self: center;
+}
+
+.status-chip-planned {
+  background: linear-gradient(135deg, #42a5f5 0%, #1e88e5 100%);
+  color: white;
+  cursor: pointer;
+}
+
+.status-chip-unplanned {
+  background: linear-gradient(135deg, #ab47bc 0%, #8e24aa 100%);
+  color: white;
+  cursor: pointer;
+}
+
 .status-chip-label {
   opacity: 0.95;
 }
