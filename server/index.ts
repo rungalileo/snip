@@ -443,47 +443,42 @@ app.get('/api/iterations/:iterationId/planning-stats', async (req, res) => {
           );
           const history = historyResponse.data;
 
-          // Find when this story was added to this iteration
-          // Look for a history entry where iteration_id changed to this iteration
+          // Sort history chronologically (oldest first) to ensure consistent ordering
+          const sortedHistory = [...history].sort((a: any, b: any) =>
+            new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime()
+          );
+
+          // Find the EARLIEST time this story was added to this iteration
           let addedToIterationAt: Date | null = null;
 
-          for (const entry of history) {
-            for (const action of entry.actions || []) {
-              if (action.entity_type === 'story' && action.changes?.iteration_id) {
-                const newIterationId = action.changes.iteration_id.new;
-                if (newIterationId === parseInt(iterationId)) {
-                  addedToIterationAt = new Date(entry.changed_at);
-                  break;
-                }
-              }
+          // First, check if story was created directly in this iteration
+          const createEntry = sortedHistory.find((h: any) =>
+            h.actions?.some((a: any) => a.action === 'create' && a.entity_type === 'story')
+          );
+
+          if (createEntry) {
+            const createAction = createEntry.actions.find(
+              (a: any) => a.action === 'create' && a.entity_type === 'story'
+            );
+            // Check if the story was CREATED with this iteration_id set
+            if (createAction?.changes?.iteration_id?.new === parseInt(iterationId)) {
+              addedToIterationAt = new Date(createEntry.changed_at);
             }
-            if (addedToIterationAt) break;
           }
 
-          // Also check if story was created directly in this iteration
-          // (no iteration_id change, but created with iteration_id set)
+          // If not created with this iteration, look for the first time it was moved to this iteration
           if (!addedToIterationAt) {
-            const createEntry = history.find((h: any) =>
-              h.actions?.some((a: any) => a.action === 'create' && a.entity_type === 'story')
-            );
-            if (createEntry) {
-              const createAction = createEntry.actions.find(
-                (a: any) => a.action === 'create' && a.entity_type === 'story'
-              );
-              // If story was created with this iteration_id, use creation date
-              if (createAction && story.iteration_id === parseInt(iterationId)) {
-                // Check if any later entry changed iteration_id TO this iteration
-                const hasIterationChange = history.some((h: any) =>
-                  h.actions?.some((a: any) =>
-                    a.entity_type === 'story' &&
-                    a.changes?.iteration_id?.new === parseInt(iterationId)
-                  )
-                );
-                if (!hasIterationChange) {
-                  // Story was created directly in this iteration
-                  addedToIterationAt = new Date(createEntry.changed_at);
+            for (const entry of sortedHistory) {
+              for (const action of entry.actions || []) {
+                if (action.entity_type === 'story' && action.changes?.iteration_id) {
+                  const newIterationId = action.changes.iteration_id.new;
+                  if (newIterationId === parseInt(iterationId)) {
+                    addedToIterationAt = new Date(entry.changed_at);
+                    break;
+                  }
                 }
               }
+              if (addedToIterationAt) break;
             }
           }
 
@@ -493,10 +488,11 @@ app.get('/api/iterations/:iterationId/planning-stats', async (req, res) => {
           };
         } catch (error) {
           console.error(`Error fetching history for story ${story.id}:`, error);
-          // Default to planned if we can't determine
+          // If we can't determine when it was added, use the story's created_at as fallback
+          // This provides more consistent behavior than defaulting to planned
           return {
             storyId: story.id,
-            addedToIterationAt: null
+            addedToIterationAt: story.created_at ? new Date(story.created_at) : null
           };
         }
       })

@@ -272,13 +272,13 @@
 }
 
 .progress-stat.planned {
-  color: #1565c0;
-  background-color: #e3f2fd;
+  color: #2e7d32;
+  background-color: #e8f5e9;
 }
 
 .progress-stat.unplanned {
-  color: #7b1fa2;
-  background-color: #f3e5f5;
+  color: #c62828;
+  background-color: #ffebee;
 }
 
 .progress-stat.clickable {
@@ -306,13 +306,13 @@
 }
 
 .progress-stat.planned-completion {
-  color: #1565c0;
-  background-color: #e3f2fd;
+  color: #2e7d32;
+  background-color: #e8f5e9;
 }
 
 .progress-stat.unplanned-completion {
-  color: #7b1fa2;
-  background-color: #f3e5f5;
+  color: #c62828;
+  background-color: #ffebee;
 }
 
 .planning-completion-stats {
@@ -338,13 +338,13 @@
 }
 
 .planning-stat.planned {
-  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-  border: 1px solid #90caf9;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  border: 1px solid #81c784;
 }
 
 .planning-stat.unplanned {
-  background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
-  border: 1px solid #ce93d8;
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+  border: 1px solid #ef9a9a;
 }
 
 .planning-stat-percent {
@@ -353,11 +353,11 @@
 }
 
 .planning-stat.planned .planning-stat-percent {
-  color: #1565c0;
+  color: #2e7d32;
 }
 
 .planning-stat.unplanned .planning-stat-percent {
-  color: #7b1fa2;
+  color: #c62828;
 }
 
 .planning-stat-label {
