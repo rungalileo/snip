@@ -6,11 +6,12 @@ import { StoriesTableModal } from './components/StoriesTableModal';
 import { AIReportModal } from './components/AIReportModal';
 import { ReportViewModal } from './components/ReportViewModal';
 import { Execution } from './components/Execution';
+import { MajorInitiatives } from './components/MajorInitiatives';
 import { Epic, Story } from './types';
 import { api } from './api';
 import './App.css';
 
-type MainView = 'execution' | 'epics';
+type MainView = 'execution' | 'epics' | 'major-initiatives';
 
 function App() {
   const [mainView, setMainView] = useState<MainView>('execution');
@@ -255,6 +256,12 @@ function App() {
         >
           Epics
         </button>
+        <button
+          className={`sub-nav-btn ${mainView === 'major-initiatives' ? 'active' : ''}`}
+          onClick={() => handleMainViewChange('major-initiatives')}
+        >
+          Major Initiatives/Projects
+        </button>
       </nav>
 
       <main className="app-main">
@@ -273,6 +280,10 @@ function App() {
               setCurrentIterationName(iterationName);
             }}
           />
+        )}
+
+        {mainView === 'major-initiatives' && (
+          <MajorInitiatives />
         )}
 
         {/* Drawer overlay */}
