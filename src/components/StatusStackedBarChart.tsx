@@ -27,6 +27,13 @@ interface StatusStackedBarChartProps {
     notStartedPercent: number;
   };
   distribution?: DistributionItem[];
+  planningStats?: {
+    plannedPercent: number;
+    unplannedPercent: number;
+    plannedCount: number;
+    unplannedCount: number;
+  };
+  onPlanningChipClick?: (type: 'planned' | 'unplanned') => void;
 }
 
 // Color palette for status types
@@ -36,7 +43,7 @@ const STATUS_COLORS = {
   notStarted: 'linear-gradient(180deg, #ef5350 0%, #e53935 100%)', // Red
 };
 
-export const StatusStackedBarChart: React.FC<StatusStackedBarChartProps> = ({ data, title, onBarClick, overallStats, distribution }) => {
+export const StatusStackedBarChart: React.FC<StatusStackedBarChartProps> = ({ data, title, onBarClick, overallStats, distribution, planningStats, onPlanningChipClick }) => {
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -67,6 +74,25 @@ export const StatusStackedBarChart: React.FC<StatusStackedBarChartProps> = ({ da
             <span className="status-chip-label">Not Started</span>
             <span className="status-chip-value">{overallStats.notStartedPercent}%</span>
           </div>
+          {planningStats && (
+            <>
+              <div className="status-chip-divider" />
+              <div
+                className="status-chip status-chip-planned"
+                onClick={() => onPlanningChipClick?.('planned')}
+              >
+                <span className="status-chip-label">Planned</span>
+                <span className="status-chip-value">{planningStats.plannedCount}</span>
+              </div>
+              <div
+                className="status-chip status-chip-unplanned"
+                onClick={() => onPlanningChipClick?.('unplanned')}
+              >
+                <span className="status-chip-label">Unplanned</span>
+                <span className="status-chip-value">{planningStats.unplannedCount}</span>
+              </div>
+            </>
+          )}
         </div>
       )}
 

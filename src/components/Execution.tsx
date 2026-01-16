@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Iteration, Story, Group } from '../types';
+import { Iteration, Story, Group, PlanningStats } from '../types';
 import { api } from '../api';
 import { BarChart } from './BarChart';
 import { StackedBarChart } from './StackedBarChart';
@@ -204,6 +204,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   const [includeAllIterations, setIncludeAllIterations] = useState(false);
   const [ticketsViewBy, setTicketsViewBy] = useState<'category' | 'owner' | 'team'>('team');
   const [statusViewBy, setStatusViewBy] = useState<'category' | 'owner' | 'team'>('team');
+  const [planningStats, setPlanningStats] = useState<PlanningStats | null>(null);
 
   // Track if we've synced URL based on the selectedIterationName prop
   const hasProcessedUrlParam = useRef(false);
@@ -234,6 +235,15 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   useEffect(() => {
     if (selectedIterationId) {
       loadStories(selectedIterationId);
+    }
+  }, [selectedIterationId]);
+
+  // Load planning stats when iteration changes
+  useEffect(() => {
+    if (selectedIterationId) {
+      loadPlanningStats(selectedIterationId);
+    } else {
+      setPlanningStats(null);
     }
   }, [selectedIterationId]);
 
@@ -500,6 +510,16 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     }
   };
 
+  const loadPlanningStats = async (iterationId: number) => {
+    try {
+      const stats = await api.getPlanningStats(iterationId);
+      setPlanningStats(stats);
+    } catch (err) {
+      console.error('Error loading planning stats:', err);
+      setPlanningStats(null);
+    }
+  };
+
   const handleBarClick = (label: string, ownerId?: string, ownerName?: string) => {
     // Filter stories by label and optionally by owner
     const filteredStories = stories.filter(story => {
@@ -640,6 +660,23 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     const statusLabel = status === 'completed' ? 'Completed' : status === 'inMotion' ? 'In Motion' : 'Not Started';
     setModalTitle(`${teamName} - ${statusLabel} (${filteredStories.length} stories)`);
     setModalStories(filteredStories);
+    setIsModalOpen(true);
+  };
+
+  const handlePlanningChipClick = (type: 'planned' | 'unplanned') => {
+    if (!planningStats) return;
+
+    const storyIds = type === 'planned'
+      ? planningStats.planned.storyIds
+      : planningStats.unplanned.storyIds;
+
+    const filteredStories = stories.filter(s => storyIds.includes(s.id));
+    const title = type === 'planned'
+      ? `Planned Stories (${filteredStories.length})`
+      : `Unplanned Stories (${filteredStories.length})`;
+
+    setModalStories(filteredStories);
+    setModalTitle(title);
     setIsModalOpen(true);
   };
 
@@ -1182,6 +1219,29 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
                       </span>
                     </div>
                   )}
+                  {planningStats && (
+                    <div className="planning-stats-row">
+                      <span
+                        className="progress-stat planned clickable"
+                        onClick={() => handlePlanningChipClick('planned')}
+                      >
+                        {planningStats.planned.percent}% planned ({planningStats.planned.count})
+                      </span>
+                      <span
+                        className="progress-stat unplanned clickable"
+                        onClick={() => handlePlanningChipClick('unplanned')}
+                      >
+                        {planningStats.unplanned.percent}% unplanned ({planningStats.unplanned.count})
+                      </span>
+                      <span className="planning-stats-divider">|</span>
+                      <span className="progress-stat planned-completion">
+                        Planned completion: {planningStats.planned.completionRate}%
+                      </span>
+                      <span className="progress-stat unplanned-completion">
+                        Unplanned completion: {planningStats.unplanned.completionRate}%
+                      </span>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -1215,6 +1275,13 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
                           overallStats={categoryOverallStats}
                           onBarClick={handleStatusByCategoryClick}
                           distribution={categoryDistribution}
+                          planningStats={planningStats ? {
+                            plannedPercent: planningStats.planned.percent,
+                            unplannedPercent: planningStats.unplanned.percent,
+                            plannedCount: planningStats.planned.count,
+                            unplannedCount: planningStats.unplanned.count,
+                          } : undefined}
+                          onPlanningChipClick={handlePlanningChipClick}
                         />
                       </div>
                     )

@@ -22,6 +22,13 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
 }) => {
   const [copiedLinks, setCopiedLinks] = React.useState(false);
 
+  // Sort stories by created date (most recent first)
+  const sortedStories = React.useMemo(() => {
+    return [...stories].sort((a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }, [stories]);
+
   // Handle escape key to close modal
   React.useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -49,7 +56,7 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
   };
 
   const handleCopyLinks = () => {
-    const allLinks = stories.map(story => story.app_url).join('\n');
+    const allLinks = sortedStories.map(story => story.app_url).join('\n');
     navigator.clipboard.writeText(allLinks);
     setCopiedLinks(true);
     setTimeout(() => setCopiedLinks(false), 2000);
@@ -64,7 +71,7 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
             <button
               className="copy-links-btn"
               onClick={handleCopyLinks}
-              disabled={stories.length === 0}
+              disabled={sortedStories.length === 0}
             >
               {copiedLinks ? '✓ Copied' : 'Copy Links'}
             </button>
@@ -74,7 +81,7 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
           </div>
         </div>
         <div className="stories-table-modal-content">
-          {stories.length === 0 ? (
+          {sortedStories.length === 0 ? (
             <div className="no-stories-message">No stories found</div>
           ) : (
             <div className="stories-table-container">
@@ -87,11 +94,11 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
                 <div className="col-link">Link</div>
               </div>
               <div className="stories-table-body">
-                {stories.map((story) => (
+                {sortedStories.map((story) => (
                   <StoryRow
                     key={story.id}
                     story={story}
-                    onClick={() => onStorySelect(story, stories)}
+                    onClick={() => onStorySelect(story, sortedStories)}
                     formatDate={formatDate}
                     isBookmarked={bookmarkedIds.has(story.id)}
                     onStoryUpdate={onStoryUpdate}
