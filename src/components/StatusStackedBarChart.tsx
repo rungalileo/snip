@@ -98,12 +98,21 @@ export const StatusStackedBarChart: React.FC<StatusStackedBarChartProps> = ({ da
 
       {distribution && distribution.length > 0 && (
         <div className="chart-distribution">
-          {distribution.map((item, index) => (
-            <span key={index} className="distribution-item">
-              <span className="distribution-label">{item.label}</span>
-              <span className="distribution-percent">{item.percent}%</span>
-            </span>
-          ))}
+          {distribution.map((item, index) => {
+            // Calculate depth based on percentage (0-100 maps to opacity 0.05-0.25)
+            const depth = Math.min(0.25, 0.05 + (item.percent / 100) * 0.20);
+            const bgColor = `rgba(100, 100, 100, ${depth})`;
+            return (
+              <span
+                key={index}
+                className="distribution-item"
+                style={{ backgroundColor: bgColor }}
+              >
+                <span className="distribution-percent">{item.percent}%</span>
+                <span className="distribution-label">{item.label}</span>
+              </span>
+            );
+          })}
         </div>
       )}
 

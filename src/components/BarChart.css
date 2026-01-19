@@ -8,11 +8,6 @@
   overflow: visible;
 }
 
-.bar-chart-header {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
 .bar-chart-title {
   margin: 0 0 12px 0;
   font-size: 18px;
@@ -23,62 +18,47 @@
 
 .category-pills {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 14px 16px;
+  background: #fafafa;
+  border-radius: 10px;
+  border: 1px solid #e8e8e8;
+  justify-content: center;
+  align-items: center;
 }
 
 .category-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #f0f0f0;
+  border-radius: 6px;
   font-size: 13px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 4px;
+  font-weight: 500;
+  color: #333;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.category-pill.customer-escalation {
-  color: #c62828;
-  background-color: #ffebee;
+.category-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
-.category-pill.bug {
-  color: #e65100;
-  background-color: #fff3e0;
+.category-pill .pill-percent {
+  color: #1a1a1a;
+  font-weight: 700;
+  font-size: 14px;
+  min-width: 36px;
+  text-align: right;
 }
 
-.category-pill.foundational-work {
-  color: #2e7d32;
-  background-color: #e8f5e9;
-}
-
-.category-pill.product-feature {
-  color: #1565c0;
-  background-color: #e3f2fd;
-}
-
-.category-pill.task {
-  color: #6a1b9a;
-  background-color: #f3e5f5;
-}
-
-.category-pill.small-improvement {
-  color: #00695c;
-  background-color: #e0f2f1;
-}
-
-.category-pill.customer-feature-request {
-  color: #4527a0;
-  background-color: #ede7f6;
-}
-
-.category-pill.nice-to-have {
-  color: #4e342e;
-  background-color: #efebe9;
-}
-
-.category-pill.other {
-  color: #424242;
-  background-color: #f5f5f5;
+.category-pill .pill-label {
+  color: #333;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .chart-wrapper {

@@ -332,34 +332,49 @@
 .chart-distribution {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding: 10px 12px;
-  background: #f5f5f5;
-  border-radius: 8px;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: #fafafa;
+  border-radius: 10px;
+  border: 1px solid #e8e8e8;
+  justify-content: center;
+  align-items: center;
 }
 
 .distribution-item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: white;
-  border-radius: 16px;
-  font-size: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  gap: 6px;
+  padding: 6px 14px;
+  background: #f0f0f0;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.distribution-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .distribution-label {
-  color: #555;
+  color: #333;
   font-weight: 500;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .distribution-percent {
-  color: #1976d2;
+  color: #1a1a1a;
   font-weight: 700;
+  font-size: 14px;
+  min-width: 36px;
+  text-align: right;
 }
+
+/* Value-based depth styling (applied via inline styles in component) */
+.distribution-item[data-depth="1"] { background: #f5f5f5; }
+.distribution-item[data-depth="2"] { background: #ebebeb; }
+.distribution-item[data-depth="3"] { background: #e0e0e0; }
+.distribution-item[data-depth="4"] { background: #d6d6d6; }
+.distribution-item[data-depth="5"] { background: #cccccc; }

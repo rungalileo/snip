@@ -289,7 +289,7 @@ function App() {
           className={`sub-nav-btn ${mainView === 'major-initiatives' ? 'active' : ''}`}
           onClick={() => handleMainViewChange('major-initiatives')}
         >
-          Major Initiatives/Projects
+          Major Projects
         </button>
         <button
           className={`sub-nav-btn ${mainView === 'customers' ? 'active' : ''}`}

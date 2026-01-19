@@ -1223,13 +1223,13 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
                   {stories.length > 0 && (
                     <div className="progress-stats">
                       <span className="progress-stat completed">
-                        {progressStats.completed}% completed
+                        Total Complete: {progressStats.completed}%
                       </span>
                       <span className="progress-stat in-motion">
-                        {progressStats.inMotion}% in motion
+                        Total In Motion: {progressStats.inMotion}%
                       </span>
                       <span className="progress-stat not-started">
-                        {progressStats.notStarted}% not started
+                        Total Not Started: {progressStats.notStarted}%
                       </span>
                     </div>
                   )}
@@ -1239,20 +1239,20 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
                         className="progress-stat planned clickable"
                         onClick={() => handlePlanningChipClick('planned')}
                       >
-                        {planningStats.planned.percent}% planned ({planningStats.planned.count})
+                        Planned Tickets: {planningStats.planned.percent}% ({planningStats.planned.count})
                       </span>
                       <span
                         className="progress-stat unplanned clickable"
                         onClick={() => handlePlanningChipClick('unplanned')}
                       >
-                        {planningStats.unplanned.percent}% unplanned ({planningStats.unplanned.count})
+                        Unplanned Tickets: {planningStats.unplanned.percent}% ({planningStats.unplanned.count})
                       </span>
                       <span className="planning-stats-divider">|</span>
                       <span className="progress-stat planned-completion">
-                        Planned completion: {planningStats.planned.completionRate}%
+                        Planned Complete: {planningStats.planned.completionRate}%
                       </span>
                       <span className="progress-stat unplanned-completion">
-                        Unplanned completion: {planningStats.unplanned.completionRate}%
+                        Unplanned Complete: {planningStats.unplanned.completionRate}%
                       </span>
                     </div>
                   )}

@@ -6,6 +6,15 @@ import './Customers.css';
 
 const CUSTOMER_TICKETS_EPIC_ID = 34714;
 
+// Completed states for tickets
+const COMPLETED_STATES = [
+  'Merged to Main',
+  'Completed / In Prod',
+  'Duplicate / Unneeded',
+  'Needs Verification',
+  'In Review'
+];
+
 // Date filter options
 const DATE_FILTERS = [
   { label: 'Last 7 days', days: 7 },
@@ -45,6 +54,13 @@ const extractCustomerFromLabels = (story: Story): string => {
   return 'Unknown';
 };
 
+// Helper to check if a story is in a completed state
+const isCompletedStory = (story: Story): boolean => {
+  return story.workflow_state?.name
+    ? COMPLETED_STATES.includes(story.workflow_state.name)
+    : false;
+};
+
 export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +68,9 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
   const [selectedDateFilter, setSelectedDateFilter] = useState<number | null>(null); // null = all time
   const [refreshing, setRefreshing] = useState(false);
+  const [showCompletedEscalations, setShowCompletedEscalations] = useState(false);
+  const [showCompletedAgreements, setShowCompletedAgreements] = useState(false);
+  const [showCompletedFeatureRequests, setShowCompletedFeatureRequests] = useState(false);
 
   useEffect(() => {
     loadStories();
@@ -121,20 +140,29 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
   }, [stories, selectedCustomer, selectedDateFilter]);
 
   // Categorize filtered stories
-  const escalations = useMemo(() =>
-    filteredStories.filter(story => hasLabelCaseInsensitive(story, 'customer escalation')),
-    [filteredStories]
-  );
+  const escalations = useMemo(() => {
+    let stories = filteredStories.filter(story => hasLabelCaseInsensitive(story, 'customer escalation'));
+    if (!showCompletedEscalations) {
+      stories = stories.filter(story => !isCompletedStory(story));
+    }
+    return stories;
+  }, [filteredStories, showCompletedEscalations]);
 
-  const contractualAgreements = useMemo(() =>
-    filteredStories.filter(story => hasLabelCaseInsensitive(story, 'customer commitment')),
-    [filteredStories]
-  );
+  const contractualAgreements = useMemo(() => {
+    let stories = filteredStories.filter(story => hasLabelCaseInsensitive(story, 'customer commitment'));
+    if (!showCompletedAgreements) {
+      stories = stories.filter(story => !isCompletedStory(story));
+    }
+    return stories;
+  }, [filteredStories, showCompletedAgreements]);
 
-  const featureRequests = useMemo(() =>
-    filteredStories.filter(story => hasLabelCaseInsensitive(story, 'customer feature request')),
-    [filteredStories]
-  );
+  const featureRequests = useMemo(() => {
+    let stories = filteredStories.filter(story => hasLabelCaseInsensitive(story, 'customer feature request'));
+    if (!showCompletedFeatureRequests) {
+      stories = stories.filter(story => !isCompletedStory(story));
+    }
+    return stories;
+  }, [filteredStories, showCompletedFeatureRequests]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -208,8 +236,18 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
         {/* Escalations Section */}
         <section className="ticket-section">
           <h3 className="section-header escalation-header">
-            Escalations
-            <span className="section-count">{escalations.length}</span>
+            <span className="section-title">
+              Escalations
+              <span className="section-count">{escalations.length}</span>
+            </span>
+            <label className="show-completed-toggle">
+              <input
+                type="checkbox"
+                checked={showCompletedEscalations}
+                onChange={(e) => setShowCompletedEscalations(e.target.checked)}
+              />
+              <span className="toggle-label">Show completed</span>
+            </label>
           </h3>
           {escalations.length === 0 ? (
             <div className="no-tickets">No tickets</div>
@@ -241,8 +279,18 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
         {/* Contractual Agreements Section */}
         <section className="ticket-section">
           <h3 className="section-header commitment-header">
-            Contractual Agreements
-            <span className="section-count">{contractualAgreements.length}</span>
+            <span className="section-title">
+              Contractual Agreements
+              <span className="section-count">{contractualAgreements.length}</span>
+            </span>
+            <label className="show-completed-toggle">
+              <input
+                type="checkbox"
+                checked={showCompletedAgreements}
+                onChange={(e) => setShowCompletedAgreements(e.target.checked)}
+              />
+              <span className="toggle-label">Show completed</span>
+            </label>
           </h3>
           {contractualAgreements.length === 0 ? (
             <div className="no-tickets">No tickets</div>
@@ -274,8 +322,18 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
         {/* Feature Requests Section */}
         <section className="ticket-section">
           <h3 className="section-header feature-header">
-            Feature Requests
-            <span className="section-count">{featureRequests.length}</span>
+            <span className="section-title">
+              Feature Requests
+              <span className="section-count">{featureRequests.length}</span>
+            </span>
+            <label className="show-completed-toggle">
+              <input
+                type="checkbox"
+                checked={showCompletedFeatureRequests}
+                onChange={(e) => setShowCompletedFeatureRequests(e.target.checked)}
+              />
+              <span className="toggle-label">Show completed</span>
+            </label>
           </h3>
           {featureRequests.length === 0 ? (
             <div className="no-tickets">No tickets</div>

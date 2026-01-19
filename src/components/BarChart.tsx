@@ -38,41 +38,35 @@ export const BarChart: React.FC<BarChartProps> = ({ data, title, maxCount, onBar
     'OTHER': 'linear-gradient(180deg, #9e9e9e 0%, #757575 100%)',
   };
 
-  // Map category names to CSS class names for pills
-  const CATEGORY_CLASS_MAP: Record<string, string> = {
-    'CUSTOMER ESCALATION': 'customer-escalation',
-    'BUG': 'bug',
-    'FOUNDATIONAL WORK': 'foundational-work',
-    'PRODUCT FEATURE': 'product-feature',
-    'TASK': 'task',
-    'SMALL IMPROVEMENT': 'small-improvement',
-    'CUSTOMER FEATURE REQUEST': 'customer-feature-request',
-    'NICE TO HAVE': 'nice-to-have',
-    'OTHER': 'other',
-  };
-
   // Format category name for display
   const formatCategoryName = (category: string): string => {
     return category.toLowerCase();
   };
 
+  // Calculate depth-based background color
+  const getDepthColor = (percent: number): string => {
+    const depth = Math.min(0.25, 0.05 + (percent / 100) * 0.20);
+    return `rgba(100, 100, 100, ${depth})`;
+  };
+
   return (
     <div className="bar-chart">
-      {title && (
-        <div className="bar-chart-header">
-          <h3 className="bar-chart-title">{title}</h3>
-          {categoryPercentages && (
-            <div className="category-pills">
-              {Object.entries(categoryPercentages).map(([category, percentage]) => (
-                <span
-                  key={category}
-                  className={`category-pill ${CATEGORY_CLASS_MAP[category] || 'other'}`}
-                >
-                  {percentage}% {formatCategoryName(category)}
-                </span>
-              ))}
-            </div>
-          )}
+      {title && <h3 className="bar-chart-title">{title}</h3>}
+      {categoryPercentages && (
+        <div className="category-pills">
+          {data.map((item) => {
+            const percentage = categoryPercentages[item.label] || 0;
+            return (
+              <span
+                key={item.label}
+                className="category-pill"
+                style={{ backgroundColor: getDepthColor(percentage) }}
+              >
+                <span className="pill-percent">{percentage}%</span>
+                <span className="pill-label">{formatCategoryName(item.label)}</span>
+              </span>
+            );
+          })}
         </div>
       )}
 
