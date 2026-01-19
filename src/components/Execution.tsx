@@ -457,16 +457,30 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
 
         // If no URL parameter or iteration not found, use default auto-select logic
         if (!iterationToSelect) {
-          // Find the current ongoing iteration
+          // Find the current iteration where today's date falls between start and end dates (inclusive)
+          // Use date-only comparison to avoid timezone issues
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
           const currentIteration = sortedIterations.find(iteration => {
-            const startDate = new Date(iteration.start_date);
-            const endDate = new Date(iteration.end_date);
-            return now >= startDate && now <= endDate;
+            const startDate = new Date(iteration.start_date + 'T00:00:00');
+            const endDate = new Date(iteration.end_date + 'T23:59:59');
+            return today >= startDate && today <= endDate;
           });
 
-          // Select current iteration if found, otherwise select the first (most recent)
-          iterationToSelect = currentIteration || sortedIterations[0];
-          console.log('[loadIterations] Using fallback iteration:', iterationToSelect.name);
+          // Select current iteration if found, otherwise select the most recent past iteration
+          // (avoid defaulting to future iterations)
+          if (currentIteration) {
+            iterationToSelect = currentIteration;
+            console.log('[loadIterations] Selected current iteration:', iterationToSelect.name);
+          } else {
+            // Find the most recent past iteration (end_date before today)
+            const pastIterations = sortedIterations.filter(iteration => {
+              const endDate = new Date(iteration.end_date + 'T23:59:59');
+              return endDate < today;
+            });
+            // Past iterations are sorted by start_date descending, so first one is most recent past
+            iterationToSelect = pastIterations.length > 0 ? pastIterations[0] : sortedIterations[sortedIterations.length - 1];
+            console.log('[loadIterations] No current iteration, selected fallback:', iterationToSelect.name);
+          }
         }
 
         setSelectedIterationId(iterationToSelect.id);
