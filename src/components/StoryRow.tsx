@@ -24,6 +24,7 @@ interface StoryRowProps {
   isBookmarked?: boolean;
   onStoryUpdate?: (updatedStory: Story) => void;
   customer?: string;
+  showStatus?: boolean;
 }
 
 // Helper function to get priority color
@@ -42,7 +43,9 @@ const getPriorityColor = (priority: string): string => {
   }
 };
 
-export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, isBookmarked, onStoryUpdate, customer }) => {
+const COMPLETED_STATES = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
+
+export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, isBookmarked, onStoryUpdate, customer, showStatus }) => {
   const ownerId = story.owner_ids && story.owner_ids.length > 0 ? story.owner_ids[0] : undefined;
   const ownerName = useOwnerName(ownerId);
   const priority = getPriority(story);
@@ -130,6 +133,11 @@ export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, 
       <div className="col-owner">
         <span className="owner-chip">{ownerName}</span>
       </div>
+      {showStatus && (
+        <div className={`col-status ${story.workflow_state && COMPLETED_STATES.includes(story.workflow_state.name) ? 'status-completed' : ''}`}>
+          {story.workflow_state?.name || '—'}
+        </div>
+      )}
       <div
         className="col-labels"
         onMouseEnter={() => setIsHoveringLabels(true)}

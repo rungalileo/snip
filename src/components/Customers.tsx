@@ -220,6 +220,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
                 <div className="col-customer">Customer</div>
                 <div className="col-title">Title</div>
                 <div className="col-owner">Owner</div>
+                <div className="col-status">Status</div>
                 <div className="col-date">Created</div>
                 <div className="col-link">Link</div>
               </div>
@@ -230,6 +231,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
                   onClick={() => onStorySelect(story, escalations)}
                   formatDate={formatDate}
                   customer={extractCustomerFromLabels(story)}
+                  showStatus
                 />
               ))}
             </div>
@@ -251,6 +253,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
                 <div className="col-customer">Customer</div>
                 <div className="col-title">Title</div>
                 <div className="col-owner">Owner</div>
+                <div className="col-status">Status</div>
                 <div className="col-date">Created</div>
                 <div className="col-link">Link</div>
               </div>
@@ -261,6 +264,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
                   onClick={() => onStorySelect(story, contractualAgreements)}
                   formatDate={formatDate}
                   customer={extractCustomerFromLabels(story)}
+                  showStatus
                 />
               ))}
             </div>
@@ -282,6 +286,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
                 <div className="col-customer">Customer</div>
                 <div className="col-title">Title</div>
                 <div className="col-owner">Owner</div>
+                <div className="col-status">Status</div>
                 <div className="col-date">Created</div>
                 <div className="col-link">Link</div>
               </div>
@@ -292,6 +297,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
                   onClick={() => onStorySelect(story, featureRequests)}
                   formatDate={formatDate}
                   customer={extractCustomerFromLabels(story)}
+                  showStatus
                 />
               ))}
             </div>

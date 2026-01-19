@@ -185,7 +185,7 @@
 
 .tickets-table-header {
   display: grid;
-  grid-template-columns: 80px 120px 1fr 140px 120px 60px;
+  grid-template-columns: 80px 120px 1fr 140px 130px 120px 60px;
   gap: 12px;
   padding: 12px 20px;
   background: #fafafa;
@@ -193,7 +193,7 @@
   color: #555;
   font-size: 13px;
   border-bottom: 1px solid #e0e0e0;
-  min-width: 800px;
+  min-width: 930px;
   position: sticky;
   top: 0;
   z-index: 1;
@@ -201,14 +201,14 @@
 
 .tickets-table .story-row {
   display: grid;
-  grid-template-columns: 80px 120px 1fr 140px 120px 60px;
+  grid-template-columns: 80px 120px 1fr 140px 130px 120px 60px;
   gap: 12px;
   padding: 14px 20px;
   border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
   transition: background 0.15s ease;
   align-items: center;
-  min-width: 800px;
+  min-width: 930px;
 }
 
 .tickets-table .col-customer {
@@ -217,6 +217,19 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tickets-table .col-status {
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tickets-table .col-status.status-completed {
+  color: #2e7d32;
+  font-weight: 500;
 }
 
 .tickets-table .story-row:last-child {
