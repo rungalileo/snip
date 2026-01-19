@@ -23,6 +23,7 @@ interface StoryRowProps {
   formatDate: (date: string) => string;
   isBookmarked?: boolean;
   onStoryUpdate?: (updatedStory: Story) => void;
+  customer?: string;
 }
 
 // Helper function to get priority color
@@ -41,7 +42,7 @@ const getPriorityColor = (priority: string): string => {
   }
 };
 
-export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, isBookmarked, onStoryUpdate }) => {
+export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, isBookmarked, onStoryUpdate, customer }) => {
   const ownerId = story.owner_ids && story.owner_ids.length > 0 ? story.owner_ids[0] : undefined;
   const ownerName = useOwnerName(ownerId);
   const priority = getPriority(story);
@@ -113,6 +114,9 @@ export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, 
   return (
     <div className="story-row" onClick={onClick}>
       <div className="col-priority" style={{ color: priorityColor }}>{priority}</div>
+      {customer !== undefined && (
+        <div className="col-customer">{customer}</div>
+      )}
       <div className="col-title">
         {isBookmarked && (
           <span className="bookmark-indicator" title="Bookmarked">

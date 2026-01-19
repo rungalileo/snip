@@ -50,25 +50,47 @@ function App() {
       const path = window.location.pathname;
       const searchParams = new URLSearchParams(window.location.search);
 
-      // Match /iteration/xxx pattern (new format)
-      const match = path.match(/^\/iteration\/([^/]+)$/);
-      if (match) {
-        const iterationName = decodeURIComponent(match[1]);
+      // Match /iteration/xxx pattern (execution with iteration)
+      const iterationMatch = path.match(/^\/iteration\/([^/]+)$/);
+      if (iterationMatch) {
+        const iterationName = decodeURIComponent(iterationMatch[1]);
         setMainView('execution');
         setSelectedIterationName(iterationName);
+        return;
       }
+
+      // Match other routes
+      if (path === '/epics') {
+        setMainView('epics');
+        setSelectedIterationName(null);
+        return;
+      }
+      if (path === '/major-initiatives') {
+        setMainView('major-initiatives');
+        setSelectedIterationName(null);
+        return;
+      }
+      if (path === '/customers') {
+        setMainView('customers');
+        setSelectedIterationName(null);
+        return;
+      }
+
       // Backwards compatibility: support old query param format
-      else if (searchParams.has('iteration')) {
+      if (searchParams.has('iteration')) {
         const iterationName = searchParams.get('iteration');
         if (iterationName) {
           setMainView('execution');
           setSelectedIterationName(decodeURIComponent(iterationName));
           // Redirect to new URL format
           window.history.replaceState({}, '', `/iteration/${encodeURIComponent(iterationName)}`);
+          return;
         }
-      } else {
-        setSelectedIterationName(null);
       }
+
+      // Default: execution view (root path or unknown path)
+      setMainView('execution');
+      setSelectedIterationName(null);
     };
 
     // Check initial URL
@@ -153,8 +175,14 @@ function App() {
     setSelectedStory(null);
     setAllStories([]);
     setSelectedIterationName(null);
-    // Clear URL parameters
-    window.history.pushState({}, '', window.location.pathname);
+    // Update URL to match the view
+    const urlMap: Record<MainView, string> = {
+      'execution': '/',
+      'epics': '/epics',
+      'major-initiatives': '/major-initiatives',
+      'customers': '/customers'
+    };
+    window.history.pushState({}, '', urlMap[newView]);
   };
 
   const handleStorySelect = (story: Story, stories: Story[]) => {

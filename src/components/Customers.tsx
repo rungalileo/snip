@@ -34,15 +34,15 @@ const hasLabelCaseInsensitive = (story: Story, labelName: string): boolean => {
   ) ?? false;
 };
 
-// Helper to extract customer name from label
-const extractCustomerFromLabels = (story: Story): string | null => {
+// Helper to extract customer name from label (looks for "customer/xxx" label)
+const extractCustomerFromLabels = (story: Story): string => {
   const customerLabel = story.labels?.find(
     label => label.name.toLowerCase().startsWith('customer/')
   );
   if (customerLabel) {
-    return customerLabel.name.slice('customer/'.length);
+    return toInitCap(customerLabel.name.slice('customer/'.length));
   }
-  return null;
+  return 'Unknown';
 };
 
 export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
@@ -87,7 +87,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
     const customerSet = new Set<string>();
     stories.forEach(story => {
       const customer = extractCustomerFromLabels(story);
-      if (customer) {
+      if (customer !== 'Unknown') {
         customerSet.add(customer);
       }
     });
@@ -104,7 +104,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
     if (selectedCustomer !== 'all') {
       filtered = filtered.filter(story => {
         const customer = extractCustomerFromLabels(story);
-        return customer?.toLowerCase() === selectedCustomer.toLowerCase();
+        return customer.toLowerCase() === selectedCustomer.toLowerCase();
       });
     }
 
@@ -217,6 +217,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
             <div className="tickets-table">
               <div className="tickets-table-header">
                 <div className="col-priority">Priority</div>
+                <div className="col-customer">Customer</div>
                 <div className="col-title">Title</div>
                 <div className="col-owner">Owner</div>
                 <div className="col-date">Created</div>
@@ -228,6 +229,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
                   story={story}
                   onClick={() => onStorySelect(story, escalations)}
                   formatDate={formatDate}
+                  customer={extractCustomerFromLabels(story)}
                 />
               ))}
             </div>
@@ -246,6 +248,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
             <div className="tickets-table">
               <div className="tickets-table-header">
                 <div className="col-priority">Priority</div>
+                <div className="col-customer">Customer</div>
                 <div className="col-title">Title</div>
                 <div className="col-owner">Owner</div>
                 <div className="col-date">Created</div>
@@ -257,6 +260,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
                   story={story}
                   onClick={() => onStorySelect(story, contractualAgreements)}
                   formatDate={formatDate}
+                  customer={extractCustomerFromLabels(story)}
                 />
               ))}
             </div>
@@ -275,6 +279,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
             <div className="tickets-table">
               <div className="tickets-table-header">
                 <div className="col-priority">Priority</div>
+                <div className="col-customer">Customer</div>
                 <div className="col-title">Title</div>
                 <div className="col-owner">Owner</div>
                 <div className="col-date">Created</div>
@@ -286,6 +291,7 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
                   story={story}
                   onClick={() => onStorySelect(story, featureRequests)}
                   formatDate={formatDate}
+                  customer={extractCustomerFromLabels(story)}
                 />
               ))}
             </div>
