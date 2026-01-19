@@ -24,6 +24,27 @@ const LABEL_CATEGORIES = [
 // Add "Other" category for unlabeled or uncategorized stories
 const LABEL_CATEGORIES_WITH_OTHER = [...LABEL_CATEGORIES, 'OTHER'];
 
+// Normalize label for comparison: uppercase and replace hyphens with spaces
+const normalizeLabel = (label: string): string => {
+  return label.toUpperCase().replace(/-/g, ' ');
+};
+
+// Check if a label name matches a category (case-insensitive, hyphen-tolerant)
+const matchesCategory = (labelName: string, category: string): boolean => {
+  return normalizeLabel(labelName) === normalizeLabel(category);
+};
+
+// Find which category a label belongs to (returns the canonical category name or null)
+const findMatchingCategory = (labelName: string): string | null => {
+  const normalized = normalizeLabel(labelName);
+  return LABEL_CATEGORIES.find(cat => normalizeLabel(cat) === normalized) || null;
+};
+
+// Check if a label matches any known category
+const isKnownCategory = (labelName: string): boolean => {
+  return findMatchingCategory(labelName) !== null;
+};
+
 // Label priority order (higher index = higher priority)
 // Priority: Product feature > customer feature request > FOUNDATIONAL work > customer escalation > bug > nice to have > task etc.
 const LABEL_PRIORITY: Record<string, number> = {
@@ -39,6 +60,12 @@ const LABEL_PRIORITY: Record<string, number> = {
   'SMALL IMPROVEMENT': 0,
 };
 
+// Get priority for a label (case-insensitive, hyphen-tolerant)
+const getLabelPriority = (labelName: string): number => {
+  const category = findMatchingCategory(labelName);
+  return category ? (LABEL_PRIORITY[category] ?? -1) : -1;
+};
+
 // Helper function to get the highest priority label for a story
 const getHighestPriorityLabel = (labels: Array<{ name: string }> | undefined): string => {
   if (!labels || labels.length === 0) {
@@ -49,11 +76,12 @@ const getHighestPriorityLabel = (labels: Array<{ name: string }> | undefined): s
   let highestPriorityLabel: string | null = null;
 
   labels.forEach(label => {
-    if (LABEL_CATEGORIES.includes(label.name)) {
-      const priority = LABEL_PRIORITY[label.name] ?? -1;
+    const category = findMatchingCategory(label.name);
+    if (category) {
+      const priority = getLabelPriority(label.name);
       if (priority > highestPriority) {
         highestPriority = priority;
-        highestPriorityLabel = label.name;
+        highestPriorityLabel = category; // Use canonical category name
       }
     }
   });
@@ -82,9 +110,9 @@ const getFirstMatchingLabel = (labels: Array<{ name: string }> | undefined): str
     return 'OTHER';
   }
 
-  // Find the first matching label in priority order
+  // Find the first matching label in priority order (case-insensitive, hyphen-tolerant)
   for (const category of BREAKDOWN_CATEGORY_ORDER) {
-    if (labels.some(label => label.name === category)) {
+    if (labels.some(label => matchesCategory(label.name, category))) {
       return category;
     }
   }
@@ -205,6 +233,15 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   const [ticketsViewBy, setTicketsViewBy] = useState<'category' | 'owner' | 'team'>('team');
   const [statusViewBy, setStatusViewBy] = useState<'category' | 'owner' | 'team'>('team');
   const [planningStats, setPlanningStats] = useState<PlanningStats | null>(null);
+  const [planningFilter, setPlanningFilter] = useState<'all' | 'planned' | 'unplanned'>(() => {
+    // Read initial filter from URL
+    const params = new URLSearchParams(window.location.search);
+    const filter = params.get('filter');
+    if (filter === 'planned' || filter === 'unplanned') {
+      return filter;
+    }
+    return 'all';
+  });
 
   // Track if we've synced URL based on the selectedIterationName prop
   const hasProcessedUrlParam = useRef(false);
@@ -301,6 +338,28 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       }
     }
   }, [selectedIterationId, iterations, selectedIterationName]);
+
+  // Sync planning filter to URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const currentFilter = params.get('filter');
+
+    if (planningFilter === 'all') {
+      // Remove filter param if set to 'all'
+      if (currentFilter) {
+        params.delete('filter');
+        const newUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
+        window.history.replaceState({}, '', newUrl);
+      }
+    } else {
+      // Set filter param
+      if (currentFilter !== planningFilter) {
+        params.set('filter', planningFilter);
+        const newUrl = window.location.pathname + `?${params.toString()}`;
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
+  }, [planningFilter]);
 
   // Fetch member names when stories change (only fetch new members)
   useEffect(() => {
@@ -535,16 +594,16 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   };
 
   const handleBarClick = (label: string, ownerId?: string, ownerName?: string) => {
-    // Filter stories by label and optionally by owner
-    const filteredStories = stories.filter(story => {
+    // Filter stories by label and optionally by owner (from already filtered set)
+    const matchingStories = filteredStories.filter(story => {
       // Special handling for "OTHER" category
       if (label === 'OTHER') {
         // Check if story has no matching labels
-        const hasMatchingLabel = story.labels?.some(l => LABEL_CATEGORIES.includes(l.name));
+        const hasMatchingLabel = story.labels?.some(l => isKnownCategory(l.name));
         if (hasMatchingLabel) return false;
       } else {
-        // Check if story has the label
-        const hasLabel = story.labels?.some(l => l.name === label);
+        // Check if story has the label (case-insensitive, hyphen-tolerant)
+        const hasLabel = story.labels?.some(l => matchesCategory(l.name, label));
         if (!hasLabel) return false;
       }
 
@@ -562,8 +621,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     // Set modal data
     const ownerSuffix = ownerName ? ` - ${ownerName}` : '';
 
-    setModalTitle(`${label}${ownerSuffix} (${filteredStories.length} stories)`);
-    setModalStories(filteredStories);
+    setModalTitle(`${label}${ownerSuffix} (${matchingStories.length} stories)`);
+    setModalStories(matchingStories);
     setIsModalOpen(true);
   };
 
@@ -579,8 +638,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
     const inMotionStates = ['In Development'];
 
-    // Filter stories by owner and status
-    const filteredStories = stories.filter(story => {
+    // Filter stories by owner and status (from already filtered set)
+    const matchingStories = filteredStories.filter(story => {
       // Check if story belongs to this owner
       const storyOwnerId = story.owner_ids && story.owner_ids.length > 0
         ? story.owner_ids[0]
@@ -598,8 +657,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
 
     // Set modal data
     const statusLabel = status === 'completed' ? 'Completed' : status === 'inMotion' ? 'In Motion' : 'Not Started';
-    setModalTitle(`${ownerName} - ${statusLabel} (${filteredStories.length} stories)`);
-    setModalStories(filteredStories);
+    setModalTitle(`${ownerName} - ${statusLabel} (${matchingStories.length} stories)`);
+    setModalStories(matchingStories);
     setIsModalOpen(true);
   };
 
@@ -607,10 +666,10 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     const completedStates = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
     const inMotionStates = ['In Development'];
 
-    // Filter stories by category and status
-    const filteredStories = stories.filter(story => {
-      // Check if story belongs to this category
-      const hasCategory = story.labels?.some(l => l.name === category);
+    // Filter stories by category and status (from already filtered set)
+    const matchingStories = filteredStories.filter(story => {
+      // Check if story belongs to this category (case-insensitive, hyphen-tolerant)
+      const hasCategory = story.labels?.some(l => matchesCategory(l.name, category));
       if (!hasCategory) return false;
 
       // Check if story matches the status
@@ -624,8 +683,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
 
     // Set modal data
     const statusLabel = status === 'completed' ? 'Completed' : status === 'inMotion' ? 'In Motion' : 'Not Started';
-    setModalTitle(`${category} - ${statusLabel} (${filteredStories.length} stories)`);
-    setModalStories(filteredStories);
+    setModalTitle(`${category} - ${statusLabel} (${matchingStories.length} stories)`);
+    setModalStories(matchingStories);
     setIsModalOpen(true);
   };
 
@@ -633,8 +692,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     // teamId might be comma-separated for merged teams
     const teamNames = teamId.split(',');
 
-    // Filter stories by team(s) and label (using priority logic)
-    const filteredStories = stories.filter(story => {
+    // Filter stories by team(s) and label (from already filtered set, using priority logic)
+    const matchingStories = filteredStories.filter(story => {
       const storyTeamName = getStoryTeam(story, memberToTeamsMap, groupIdToNameMap);
       if (!teamNames.includes(storyTeamName)) return false;
 
@@ -643,8 +702,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       return priorityLabel === label;
     });
 
-    setModalTitle(`${label} (${filteredStories.length} stories)`);
-    setModalStories(filteredStories);
+    setModalTitle(`${label} (${matchingStories.length} stories)`);
+    setModalStories(matchingStories);
     setIsModalOpen(true);
   };
 
@@ -655,8 +714,8 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     // teamId might be comma-separated for merged teams
     const teamNames = teamId.split(',');
 
-    // Filter stories by team(s) and status
-    const filteredStories = stories.filter(story => {
+    // Filter stories by team(s) and status (from already filtered set)
+    const matchingStories = filteredStories.filter(story => {
       // Check if story belongs to this team
       const storyTeamName = getStoryTeam(story, memberToTeamsMap, groupIdToNameMap);
       if (!teamNames.includes(storyTeamName)) return false;
@@ -672,26 +731,20 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
 
     // Set modal data
     const statusLabel = status === 'completed' ? 'Completed' : status === 'inMotion' ? 'In Motion' : 'Not Started';
-    setModalTitle(`${teamName} - ${statusLabel} (${filteredStories.length} stories)`);
-    setModalStories(filteredStories);
+    setModalTitle(`${teamName} - ${statusLabel} (${matchingStories.length} stories)`);
+    setModalStories(matchingStories);
     setIsModalOpen(true);
   };
 
   const handlePlanningChipClick = (type: 'planned' | 'unplanned') => {
     if (!planningStats) return;
 
-    const storyIds = type === 'planned'
-      ? planningStats.planned.storyIds
-      : planningStats.unplanned.storyIds;
-
-    const filteredStories = stories.filter(s => storyIds.includes(s.id));
-    const title = type === 'planned'
-      ? `Planned Stories (${filteredStories.length})`
-      : `Unplanned Stories (${filteredStories.length})`;
-
-    setModalStories(filteredStories);
-    setModalTitle(title);
-    setIsModalOpen(true);
+    // Toggle filter: if clicking the same filter, clear it; otherwise set it
+    if (planningFilter === type) {
+      setPlanningFilter('all');
+    } else {
+      setPlanningFilter(type);
+    }
   };
 
   const handleIterationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -714,6 +767,19 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     }
   };
 
+  // Filter stories based on planning filter
+  const filteredStories = useMemo(() => {
+    if (planningFilter === 'all' || !planningStats) {
+      return stories;
+    }
+
+    const storyIds = planningFilter === 'planned'
+      ? planningStats.planned.storyIds
+      : planningStats.unplanned.storyIds;
+
+    return stories.filter(s => storyIds.includes(s.id));
+  }, [stories, planningFilter, planningStats]);
+
   // Calculate label counts for all stories
   const overallLabelCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -721,12 +787,13 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       counts[label] = 0;
     });
 
-    stories.forEach(story => {
+    filteredStories.forEach(story => {
       let hasMatchingLabel = false;
       if (story.labels && story.labels.length > 0) {
         story.labels.forEach(label => {
-          if (LABEL_CATEGORIES.includes(label.name)) {
-            counts[label.name] = (counts[label.name] || 0) + 1;
+          const category = findMatchingCategory(label.name);
+          if (category) {
+            counts[category] = (counts[category] || 0) + 1;
             hasMatchingLabel = true;
           }
         });
@@ -742,11 +809,11 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       label,
       count: counts[label] || 0,
     }));
-  }, [stories]);
+  }, [filteredStories]);
 
   // Calculate category percentages for all categories
   const categoryPercentages = useMemo(() => {
-    const totalStories = stories.length;
+    const totalStories = filteredStories.length;
     const percentages: Record<string, number> = {};
 
     LABEL_CATEGORIES_WITH_OTHER.forEach(category => {
@@ -755,7 +822,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     });
 
     return percentages;
-  }, [stories, overallLabelCounts]);
+  }, [filteredStories, overallLabelCounts]);
 
   // Calculate status breakdown for each label category
   const statusByCategory = useMemo(() => {
@@ -763,9 +830,9 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     const inMotionStates = ['In Development'];
 
     return LABEL_CATEGORIES.map(labelCategory => {
-      // Filter stories with this label
-      const labelStories = stories.filter(story =>
-        story.labels?.some(l => l.name === labelCategory)
+      // Filter stories with this label (case-insensitive, hyphen-tolerant)
+      const labelStories = filteredStories.filter(story =>
+        story.labels?.some(l => matchesCategory(l.name, labelCategory))
       );
 
       let completedCount = 0;
@@ -791,7 +858,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
         totalCount: labelStories.length,
       };
     }).filter(item => item.totalCount > 0); // Only show categories with stories
-  }, [stories]);
+  }, [filteredStories]);
 
   // Calculate overall percentages across all categories
   const categoryOverallStats = useMemo(() => {
@@ -823,7 +890,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
   const ownerLabelCounts = useMemo(() => {
     const ownerData: Record<string, Record<string, number>> = {};
 
-    stories.forEach(story => {
+    filteredStories.forEach(story => {
       const ownerId = story.owner_ids && story.owner_ids.length > 0
         ? story.owner_ids[0]
         : 'unassigned';
@@ -835,12 +902,13 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
         });
       }
 
-      // Check if story has any labels in our categories
+      // Check if story has any labels in our categories (case-insensitive, hyphen-tolerant)
       let hasMatchingLabel = false;
       if (story.labels && story.labels.length > 0) {
         story.labels.forEach(label => {
-          if (LABEL_CATEGORIES.includes(label.name)) {
-            ownerData[ownerId][label.name] = (ownerData[ownerId][label.name] || 0) + 1;
+          const category = findMatchingCategory(label.name);
+          if (category) {
+            ownerData[ownerId][category] = (ownerData[ownerId][category] || 0) + 1;
             hasMatchingLabel = true;
           }
         });
@@ -860,7 +928,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
         count: counts[label] || 0,
       })),
     }));
-  }, [stories]);
+  }, [filteredStories]);
 
   // Calculate status breakdown for each owner (use same owner list as ownerLabelCounts)
   const statusByOwner = useMemo(() => {
@@ -870,7 +938,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     // Use the same owner IDs from ownerLabelCounts to ensure consistency
     return ownerLabelCounts.map(({ ownerId }) => {
       // Filter stories for this owner
-      const ownerStories = stories.filter(story => {
+      const ownerStories = filteredStories.filter(story => {
         const storyOwnerId = story.owner_ids && story.owner_ids.length > 0
           ? story.owner_ids[0]
           : 'unassigned';
@@ -900,13 +968,13 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
         totalCount: ownerStories.length,
       };
     }); // Don't filter - use same owners as ownerLabelCounts
-  }, [stories, ownerLabelCounts]);
+  }, [filteredStories, ownerLabelCounts]);
 
   // Calculate label counts per team
   const teamLabelCounts = useMemo(() => {
     const teamData: Record<string, Record<string, number>> = {};
 
-    stories.forEach(story => {
+    filteredStories.forEach(story => {
       const teamName = getStoryTeam(story, memberToTeamsMap, groupIdToNameMap);
 
       if (!teamData[teamName]) {
@@ -929,7 +997,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
         count: counts[label] || 0,
       })),
     }));
-  }, [stories, memberToTeamsMap, groupIdToNameMap]);
+  }, [filteredStories, memberToTeamsMap, groupIdToNameMap]);
 
   // Calculate status breakdown for each team (use same team list as teamLabelCounts)
   const statusByTeam = useMemo(() => {
@@ -939,7 +1007,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     // Use the same team IDs from teamLabelCounts to ensure consistency
     return teamLabelCounts.map(({ teamId }) => {
       // Filter stories for this team
-      const teamStories = stories.filter(story => {
+      const teamStories = filteredStories.filter(story => {
         const storyTeamName = getStoryTeam(story, memberToTeamsMap, groupIdToNameMap);
         return storyTeamName === teamId;
       });
@@ -967,7 +1035,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
         totalCount: teamStories.length,
       };
     });
-  }, [stories, teamLabelCounts, memberToTeamsMap, groupIdToNameMap]);
+  }, [filteredStories, teamLabelCounts, memberToTeamsMap, groupIdToNameMap]);
 
   // Get max count across all charts for consistent scale
   const maxCount = useMemo(() => {
@@ -998,7 +1066,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       completed: Story[];
     }> = {};
 
-    stories.forEach(story => {
+    filteredStories.forEach(story => {
       const ownerId = story.owner_ids && story.owner_ids.length > 0
         ? story.owner_ids[0]
         : 'unassigned';
@@ -1067,11 +1135,11 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     });
 
     return Object.values(ownerMap);
-  }, [stories, memberToTeamsMap, groupIdToNameMap]);
+  }, [filteredStories, memberToTeamsMap, groupIdToNameMap]);
 
   // Calculate progress percentages based on workflow states
   const progressStats = useMemo(() => {
-    if (stories.length === 0) {
+    if (filteredStories.length === 0) {
       return { completed: 0, inMotion: 0, notStarted: 0 };
     }
 
@@ -1082,7 +1150,7 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
     let inMotionCount = 0;
     let notStartedCount = 0;
 
-    stories.forEach(story => {
+    filteredStories.forEach(story => {
       const stateName = story.workflow_state?.name || '';
       if (completedStates.includes(stateName)) {
         completedCount++;
@@ -1093,13 +1161,13 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       }
     });
 
-    const total = stories.length;
+    const total = filteredStories.length;
     return {
       completed: Math.round((completedCount / total) * 100),
       inMotion: Math.round((inMotionCount / total) * 100),
       notStarted: Math.round((notStartedCount / total) * 100),
     };
-  }, [stories]);
+  }, [filteredStories]);
 
   if (loading) {
     return (
@@ -1219,8 +1287,13 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
               <span className="iteration-status">{selectedIteration.status}</span>
               {!loadingStories && (
                 <>
-                  <span className="iteration-story-count">{stories.length} stories</span>
-                  {stories.length > 0 && (
+                  <span className="iteration-story-count">
+                    {planningFilter !== 'all'
+                      ? `${filteredStories.length} of ${stories.length} stories (${planningFilter})`
+                      : `${stories.length} stories`
+                    }
+                  </span>
+                  {filteredStories.length > 0 && (
                     <div className="progress-stats">
                       <span className="progress-stat completed">
                         Total Complete: {progressStats.completed}%
@@ -1236,17 +1309,25 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
                   {planningStats && (
                     <div className="planning-stats-row">
                       <span
-                        className="progress-stat planned clickable"
+                        className={`progress-stat planned clickable ${planningFilter === 'planned' ? 'active' : ''}`}
                         onClick={() => handlePlanningChipClick('planned')}
                       >
                         Planned Tickets: {planningStats.planned.percent}% ({planningStats.planned.count})
                       </span>
                       <span
-                        className="progress-stat unplanned clickable"
+                        className={`progress-stat unplanned clickable ${planningFilter === 'unplanned' ? 'active' : ''}`}
                         onClick={() => handlePlanningChipClick('unplanned')}
                       >
                         Unplanned Tickets: {planningStats.unplanned.percent}% ({planningStats.unplanned.count})
                       </span>
+                      {planningFilter !== 'all' && (
+                        <span
+                          className="progress-stat clear-filter clickable"
+                          onClick={() => setPlanningFilter('all')}
+                        >
+                          Clear Filter
+                        </span>
+                      )}
                       <span className="planning-stats-divider">|</span>
                       <span className="progress-stat planned-completion">
                         Planned Complete: {planningStats.planned.completionRate}%

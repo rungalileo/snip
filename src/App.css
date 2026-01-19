@@ -34,8 +34,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 32px;
-  max-width: 1600px;
+  padding: 16px 20px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -97,14 +97,19 @@ body {
 .sub-header {
   background: white;
   border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  padding: 0 40px;
-  gap: 8px;
   position: sticky;
-  top: 69px;
+  top: 61px;
   z-index: 99;
   backdrop-filter: blur(10px);
   background: rgba(255, 255, 255, 0.95);
+}
+
+.sub-header-content {
+  display: flex;
+  gap: 8px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px;
 }
 
 .sub-nav-btn {
@@ -132,7 +137,7 @@ body {
 
 .app-main {
   flex: 1;
-  padding: 40px 20px;
+  padding: 40px 0;
 }
 
 /* Drawer styles */

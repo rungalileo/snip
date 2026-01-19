@@ -89,6 +89,7 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
                 <div className="col-priority">Priority</div>
                 <div className="col-title">Title</div>
                 <div className="col-owner">Owner</div>
+                <div className="col-status">Status</div>
                 <div className="col-labels">Labels</div>
                 <div className="col-date">Created</div>
                 <div className="col-link">Link</div>
@@ -102,6 +103,7 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
                     formatDate={formatDate}
                     isBookmarked={bookmarkedIds.has(story.id)}
                     onStoryUpdate={onStoryUpdate}
+                    showStatus={true}
                   />
                 ))}
               </div>

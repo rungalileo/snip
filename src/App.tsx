@@ -273,30 +273,32 @@ function App() {
       </header>
 
       <nav className="sub-header">
-        <button
-          className={`sub-nav-btn ${mainView === 'execution' ? 'active' : ''}`}
-          onClick={() => handleMainViewChange('execution')}
-        >
-          Execution
-        </button>
-        <button
-          className={`sub-nav-btn ${mainView === 'epics' ? 'active' : ''}`}
-          onClick={() => handleMainViewChange('epics')}
-        >
-          Epics
-        </button>
-        <button
-          className={`sub-nav-btn ${mainView === 'major-initiatives' ? 'active' : ''}`}
-          onClick={() => handleMainViewChange('major-initiatives')}
-        >
-          Major Projects
-        </button>
-        <button
-          className={`sub-nav-btn ${mainView === 'customers' ? 'active' : ''}`}
-          onClick={() => handleMainViewChange('customers')}
-        >
-          Customers
-        </button>
+        <div className="sub-header-content">
+          <button
+            className={`sub-nav-btn ${mainView === 'execution' ? 'active' : ''}`}
+            onClick={() => handleMainViewChange('execution')}
+          >
+            Execution
+          </button>
+          <button
+            className={`sub-nav-btn ${mainView === 'epics' ? 'active' : ''}`}
+            onClick={() => handleMainViewChange('epics')}
+          >
+            Epics
+          </button>
+          <button
+            className={`sub-nav-btn ${mainView === 'major-initiatives' ? 'active' : ''}`}
+            onClick={() => handleMainViewChange('major-initiatives')}
+          >
+            Major Projects
+          </button>
+          <button
+            className={`sub-nav-btn ${mainView === 'customers' ? 'active' : ''}`}
+            onClick={() => handleMainViewChange('customers')}
+          >
+            Customers
+          </button>
+        </div>
       </nav>
 
       <main className="app-main">
