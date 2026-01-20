@@ -141,7 +141,15 @@ export const Customers: React.FC<CustomersProps> = ({ onStorySelect }) => {
 
   // Categorize filtered stories
   const escalations = useMemo(() => {
-    let stories = filteredStories.filter(story => hasLabelCaseInsensitive(story, 'customer escalation'));
+    let stories = filteredStories.filter(story => {
+      // Explicit escalation label
+      if (hasLabelCaseInsensitive(story, 'customer escalation')) return true;
+      // customer/abc label, but only if no other category label exists
+      const hasCustomerSlashLabel = story.labels.some(label => label.name.toLowerCase().startsWith('customer/'));
+      const hasOtherCategoryLabel = hasLabelCaseInsensitive(story, 'customer commitment') ||
+        hasLabelCaseInsensitive(story, 'customer feature request');
+      return hasCustomerSlashLabel && !hasOtherCategoryLabel;
+    });
     if (!showCompletedEscalations) {
       stories = stories.filter(story => !isCompletedStory(story));
     }
