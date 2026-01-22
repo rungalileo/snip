@@ -275,4 +275,11 @@ export const api = {
     const response = await axios.get(`${API_BASE}/major-initiatives`);
     return response.data;
   },
+
+  async generateExecutiveSummary(objectiveId: number, openaiKey: string): Promise<{ summary: string; generated_at: string }> {
+    const response = await axios.post(`${API_BASE}/major-initiatives/${objectiveId}/executive-summary`, {
+      openaiKey,
+    });
+    return response.data;
+  },
 };

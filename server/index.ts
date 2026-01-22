@@ -371,6 +371,153 @@ app.get('/api/major-initiatives', async (req, res) => {
   }
 });
 
+// Generate Executive Summary for a Major Initiative (Objective)
+app.post('/api/major-initiatives/:objectiveId/executive-summary', async (req, res) => {
+  try {
+    const { objectiveId } = req.params;
+    const { openaiKey } = req.body;
+
+    if (!openaiKey) {
+      return res.status(400).json({ error: 'OpenAI API key is required' });
+    }
+
+    console.log(`Generating executive summary for objective ${objectiveId}`);
+
+    // Fetch the objective
+    const objectiveResponse = await axios.get(
+      `${SHORTCUT_API_BASE}/objectives/${objectiveId}`,
+      { headers: shortcutHeaders }
+    );
+    const objective = objectiveResponse.data;
+
+    // Fetch epics for this objective
+    let epics: any[] = [];
+    try {
+      const epicsResponse = await axios.get(
+        `${SHORTCUT_API_BASE}/objectives/${objectiveId}/epics`,
+        { headers: shortcutHeaders }
+      );
+      epics = epicsResponse.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        // Fallback: fetch all epics and filter
+        const allEpicsResponse = await axios.get(`${SHORTCUT_API_BASE}/epics`, {
+          headers: shortcutHeaders,
+        });
+        epics = allEpicsResponse.data.filter((epic: any) => 
+          epic.objective_id === objective.id
+        );
+      } else {
+        throw error;
+      }
+    }
+
+    // Fetch stories for each epic
+    const allStories: any[] = [];
+    for (const epic of epics) {
+      try {
+        const storiesResponse = await axios.get(
+          `${SHORTCUT_API_BASE}/epics/${epic.id}/stories`,
+          { headers: shortcutHeaders }
+        );
+        const epicStories = storiesResponse.data.map((story: any) => ({
+          ...story,
+          epic_name: epic.name,
+          epic_id: epic.id,
+        }));
+        allStories.push(...epicStories);
+      } catch (error) {
+        console.error(`Error fetching stories for epic ${epic.id}:`, error);
+        // Continue with other epics
+      }
+    }
+
+    // Prepare data for LLM
+    const objectiveData = {
+      name: objective.name,
+      description: objective.description || '',
+      state: objective.state,
+      start_date: objective.started_at || objective.start_date,
+      target_date: objective.completed_at || objective.target_date,
+      epics: epics.map((epic: any) => ({
+        id: epic.id,
+        name: epic.name,
+        description: epic.description || '',
+        state: epic.state,
+        start_date: epic.planned_start_date || epic.started_at,
+        target_date: epic.planned_end_date || epic.completed_at,
+      })),
+      stories: allStories.map((story: any) => ({
+        id: story.id,
+        name: story.name,
+        description: story.description || '',
+        status: story.workflow_state?.name || story.status || 'Unknown',
+        epic_name: story.epic_name,
+        owner: story.owner_ids && story.owner_ids.length > 0 ? story.owner_ids[0] : null,
+      })),
+    };
+
+    // System prompt
+    const systemPrompt = "You are a AI Agent that is good at summarizing software project tickets available as Objectives, Epics and Stories via a tool called Shortcut. Create a summary that is between 50-200 words for each Objective and the Epics.";
+
+    // User prompt
+    const userPrompt = `Generate an executive summary for the following Major Initiative (Objective) and its associated Epics and Stories.
+
+Objective: ${objectiveData.name}
+Description: ${objectiveData.description || 'No description'}
+Status: ${objectiveData.state}
+Start Date: ${objectiveData.start_date || 'Not set'}
+Target Date: ${objectiveData.target_date || 'Not set'}
+
+Epics (${objectiveData.epics.length}):
+${objectiveData.epics.map((epic: any) => `- ${epic.name} (${epic.state}): ${epic.description || 'No description'}`).join('\n')}
+
+Stories (${objectiveData.stories.length}):
+${objectiveData.stories.map((story: any) => `- [${story.status}] ${story.name} (Epic: ${story.epic_name})`).join('\n')}
+
+Please provide a concise executive summary (50-200 words) that covers:
+1. Overview of the Major Initiative
+2. Key accomplishments and progress
+3. Current status and any blockers
+4. Next steps or priorities`;
+
+    // Call OpenAI API
+    const openaiResponse = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 300, // ~200 words (approximately 1.5 tokens per word)
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${openaiKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const executiveSummary = openaiResponse.data.choices[0].message.content;
+
+    console.log(`✅ Executive summary generated for objective ${objectiveId}`);
+
+    res.json({
+      summary: executiveSummary,
+      generated_at: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('Error generating executive summary:', error.response?.data || error.message);
+    res.status(500).json({
+      error: 'Failed to generate executive summary',
+      details: error.response?.data?.error?.message || error.message,
+    });
+  }
+});
+
 // Get stories for a specific epic
 app.get('/api/epics/:epicId/stories', async (req, res) => {
   try {

@@ -111,6 +111,6 @@ export interface EpicWithDetails extends Epic {
   start_date?: string;
   target_date?: string;
   status?: string;
-  teams?: Group[];
-  owners?: Member[];
+  teams?: { id: string; name: string; mention_name: string }[];
+  owners?: { id: string; name: string; email?: string }[];
 }

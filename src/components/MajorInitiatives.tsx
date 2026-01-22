@@ -76,6 +76,10 @@ export const MajorInitiatives: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
+  const [executiveSummaries, setExecutiveSummaries] = useState<Map<number, { summary: string; generated_at: string }>>(new Map());
+  const [generatingSummary, setGeneratingSummary] = useState<Set<number>>(new Set());
+  const [openaiKey, setOpenaiKey] = useState<string>('');
+  const [showApiKeyInput, setShowApiKeyInput] = useState<Map<number, boolean>>(new Map());
 
   useEffect(() => {
     loadMajorInitiatives();
@@ -91,6 +95,58 @@ export const MajorInitiatives: React.FC = () => {
       }
       return newSet;
     });
+  };
+
+  const handleGenerateSummary = async (initiativeId: number) => {
+    // Show API key input if not already set
+    if (!openaiKey) {
+      setShowApiKeyInput((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(initiativeId, true);
+        return newMap;
+      });
+      return;
+    }
+
+    try {
+      setGeneratingSummary((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(initiativeId);
+        return newSet;
+      });
+
+      const result = await api.generateExecutiveSummary(initiativeId, openaiKey);
+      
+      setExecutiveSummaries((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(initiativeId, result);
+        return newMap;
+      });
+
+      // Hide API key input after successful generation
+      setShowApiKeyInput((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(initiativeId, false);
+        return newMap;
+      });
+    } catch (err: any) {
+      console.error('Failed to generate executive summary:', err);
+      alert(err.response?.data?.error || err.message || 'Failed to generate executive summary');
+    } finally {
+      setGeneratingSummary((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(initiativeId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleApiKeySubmit = (initiativeId: number) => {
+    if (!openaiKey.trim()) {
+      alert('Please enter your OpenAI API key');
+      return;
+    }
+    handleGenerateSummary(initiativeId);
   };
 
   const loadMajorInitiatives = async () => {
@@ -165,12 +221,112 @@ export const MajorInitiatives: React.FC = () => {
                   <button
                     className="collapse-toggle"
                     onClick={() => toggleCard(initiative.id)}
-                    title={isExpanded ? 'Collapse' : 'Expand'}
+                    title={isExpanded ? 'Click to collapse card details' : 'Click to expand card details'}
                     aria-label={isExpanded ? 'Collapse card' : 'Expand card'}
                   >
-                    {isExpanded ? '▼' : '▶'}
+                    <span className="collapse-icon">{isExpanded ? '▼' : '▶'}</span>
+                    <span className="collapse-text">{isExpanded ? 'Collapse' : 'Expand'}</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Executive Summary Section */}
+              <div className="executive-summary-section">
+                <div className="executive-summary-header">
+                  <h4 className="executive-summary-title">Executive Summary</h4>
+                  {!executiveSummaries.has(initiative.id) && (
+                    <button
+                      className="generate-summary-btn"
+                      onClick={() => handleGenerateSummary(initiative.id)}
+                      disabled={generatingSummary.has(initiative.id)}
+                    >
+                      {generatingSummary.has(initiative.id) ? 'Generating...' : 'Generate Exec Summary'}
+                    </button>
+                  )}
+                </div>
+
+                {showApiKeyInput.get(initiative.id) && (
+                  <div className="api-key-input-container">
+                    <input
+                      type="password"
+                      className="api-key-input"
+                      placeholder="Enter OpenAI API key (sk-...)"
+                      value={openaiKey}
+                      onChange={(e) => setOpenaiKey(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleApiKeySubmit(initiative.id);
+                        }
+                      }}
+                    />
+                    <div className="api-key-actions">
+                      <button
+                        className="btn-submit-api-key"
+                        onClick={() => handleApiKeySubmit(initiative.id)}
+                        disabled={!openaiKey.trim() || generatingSummary.has(initiative.id)}
+                      >
+                        Generate
+                      </button>
+                      <button
+                        className="btn-cancel-api-key"
+                        onClick={() => {
+                          setShowApiKeyInput((prev) => {
+                            const newMap = new Map(prev);
+                            newMap.set(initiative.id, false);
+                            return newMap;
+                          });
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <div className="api-key-hint">
+                      Your API key will be used to generate the summary and will not be stored.
+                    </div>
+                  </div>
+                )}
+
+                {generatingSummary.has(initiative.id) && (
+                  <div className="summary-loading">
+                    <div className="spinner-small"></div>
+                    <span>Generating executive summary...</span>
+                  </div>
+                )}
+
+                {executiveSummaries.has(initiative.id) && (
+                  <div className="executive-summary-content">
+                    <div className="summary-text">
+                      {executiveSummaries.get(initiative.id)?.summary.split('\n').map((line, index) => (
+                        <p key={index}>{line || <br />}</p>
+                      ))}
+                    </div>
+                    <div className="summary-footer">
+                      <small>
+                        Generated: {new Date(executiveSummaries.get(initiative.id)?.generated_at || '').toLocaleString()}
+                      </small>
+                      <button
+                        className="regenerate-summary-btn"
+                        onClick={() => {
+                          setExecutiveSummaries((prev) => {
+                            const newMap = new Map(prev);
+                            newMap.delete(initiative.id);
+                            return newMap;
+                          });
+                          handleGenerateSummary(initiative.id);
+                        }}
+                        disabled={generatingSummary.has(initiative.id)}
+                      >
+                        Regenerate
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {!executiveSummaries.has(initiative.id) && !generatingSummary.has(initiative.id) && !showApiKeyInput.get(initiative.id) && (
+                  <div className="summary-placeholder">
+                    Click "Generate Exec Summary" to create an AI-generated executive summary for this Major Initiative.
+                  </div>
+                )}
               </div>
 
               {isExpanded && (
