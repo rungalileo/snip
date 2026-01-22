@@ -93,3 +93,24 @@ export interface PlanningStats {
   };
   iterationStartDate: string;
 }
+
+export interface Objective {
+  id: number;
+  name: string;
+  description: string;
+  start_date?: string;
+  target_date?: string;
+  status: string;
+  app_url: string;
+  created_at: string;
+  updated_at: string;
+  custom_fields?: CustomField[];
+}
+
+export interface EpicWithDetails extends Epic {
+  start_date?: string;
+  target_date?: string;
+  status?: string;
+  teams?: Group[];
+  owners?: Member[];
+}

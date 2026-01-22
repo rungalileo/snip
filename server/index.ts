@@ -158,6 +158,219 @@ app.get('/api/epics', async (req, res) => {
   }
 });
 
+// Debug endpoint to see objective structure
+app.get('/api/major-initiatives/debug', async (req, res) => {
+  try {
+    const objectivesResponse = await axios.get(`${SHORTCUT_API_BASE}/objectives`, {
+      headers: shortcutHeaders,
+    });
+    const objectives = objectivesResponse.data || [];
+    
+    const customFieldsResponse = await axios.get(`${SHORTCUT_API_BASE}/custom-fields`, {
+      headers: shortcutHeaders,
+    });
+
+    // Return first objective and available custom fields for debugging
+    res.json({
+      totalObjectives: objectives.length,
+      sampleObjective: objectives[0] || null,
+      availableCustomFields: customFieldsResponse.data.map((f: any) => ({
+        id: f.id,
+        name: f.name,
+        type: f.type,
+        values: f.values?.slice(0, 5) || [] // First 5 values
+      }))
+    });
+  } catch (error: any) {
+    console.error('Error in debug endpoint:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch debug info',
+      details: error.response?.data || error.message 
+    });
+  }
+});
+
+// Get Major Initiatives (Objectives with "Major Initiative" category)
+app.get('/api/major-initiatives', async (req, res) => {
+  try {
+    // Fetch all objectives
+    let allObjectives: any[] = [];
+    try {
+      const objectivesResponse = await axios.get(`${SHORTCUT_API_BASE}/objectives`, {
+        headers: shortcutHeaders,
+      });
+      allObjectives = objectivesResponse.data || [];
+      console.log(`Fetched ${allObjectives.length} objectives from Shortcut`);
+    } catch (error: any) {
+      console.error('Error fetching objectives from Shortcut API:', error.response?.status, error.response?.statusText);
+      if (error.response?.status === 404) {
+        console.log('Objectives endpoint not found - Shortcut API might not support objectives endpoint');
+        return res.json([]);
+      }
+      throw error;
+    }
+
+    // Fetch groups for team information
+    const groupsResponse = await axios.get(`${SHORTCUT_API_BASE}/groups`, {
+      headers: shortcutHeaders,
+    });
+    const groupsMap = new Map(groupsResponse.data.map((g: any) => [g.id, g]));
+
+    // Fetch members for owner information
+    const membersResponse = await axios.get(`${SHORTCUT_API_BASE}/members`, {
+      headers: shortcutHeaders,
+    });
+    const membersMap = new Map(membersResponse.data.map((m: any) => [m.id, m]));
+
+    // Filter objectives that have "Major Initiative" in their categories array
+    // Objectives have a direct "categories" field (array of category objects/strings)
+    const majorInitiatives = allObjectives.filter((objective: any) => {
+      // Check if objective has categories field
+      if (!objective.categories || !Array.isArray(objective.categories)) {
+        return false;
+      }
+
+      // Check if any category contains "Major Initiative" (case-insensitive)
+      const matches = objective.categories.some((category: any) => {
+        // Handle both string and object formats
+        const categoryValue = typeof category === 'string' 
+          ? category 
+          : (category.name || category.value || category.label || String(category));
+        
+        return categoryValue && categoryValue.toLowerCase().includes('major initiative');
+      });
+
+      if (matches) {
+        const categoryNames = objective.categories.map((c: any) => 
+          typeof c === 'string' ? c : (c.name || c.value || c.label || String(c))
+        );
+        console.log(`Found Major Initiative: ${objective.name} (Categories: ${categoryNames.join(', ')})`);
+      }
+
+      return matches;
+    });
+
+    console.log(`Filtered to ${majorInitiatives.length} major initiatives out of ${allObjectives.length} objectives`);
+
+    // Enrich each major initiative with its epics
+    const enrichedInitiatives = await Promise.all(
+      majorInitiatives.map(async (objective: any) => {
+        try {
+          // Fetch epics for this objective
+          // Try the objectives/{id}/epics endpoint first, fallback to filtering all epics
+          let epics: any[] = [];
+          try {
+            const epicsResponse = await axios.get(
+              `${SHORTCUT_API_BASE}/objectives/${objective.id}/epics`,
+              { headers: shortcutHeaders }
+            );
+            epics = epicsResponse.data;
+          } catch (error: any) {
+            // If endpoint doesn't exist, fetch all epics and filter by objective_id
+            if (error.response?.status === 404) {
+              console.log(`Objectives/${objective.id}/epics endpoint not found, trying alternative method`);
+              try {
+                const allEpicsResponse = await axios.get(`${SHORTCUT_API_BASE}/epics`, {
+                  headers: shortcutHeaders,
+                });
+                // Filter epics that belong to this objective
+                epics = allEpicsResponse.data.filter((epic: any) => 
+                  epic.objective_id === objective.id
+                );
+              } catch (fallbackError) {
+                console.error(`Error fetching epics for objective ${objective.id}:`, fallbackError);
+                epics = [];
+              }
+            } else {
+              console.error(`Error fetching epics for objective ${objective.id}:`, error);
+              epics = [];
+            }
+          }
+
+          // Enrich each epic with teams and owners
+          const enrichedEpics = await Promise.all(
+            epics.map(async (epic: any) => {
+              // Get team information from epic's group_id
+              const teams: any[] = [];
+              if (epic.group_id) {
+                const group = groupsMap.get(epic.group_id);
+                if (group) {
+                  teams.push({
+                    id: group.id,
+                    name: group.name,
+                    mention_name: group.mention_name,
+                  });
+                }
+              }
+
+              // Get owner information
+              const owners: any[] = [];
+              if (epic.owner_ids && epic.owner_ids.length > 0) {
+                epic.owner_ids.forEach((ownerId: string) => {
+                  const member = membersMap.get(ownerId);
+                  if (member) {
+                    owners.push({
+                      id: member.id,
+                      name: member.profile?.name || 'Unknown',
+                      email: member.profile?.email_address,
+                    });
+                  }
+                });
+              }
+
+              return {
+                id: epic.id,
+                name: epic.name,
+                description: epic.description,
+                start_date: epic.planned_start_date || epic.started_at,
+                target_date: epic.planned_end_date || epic.completed_at,
+                status: epic.state || (epic.completed ? 'done' : 'in progress'),
+                app_url: epic.app_url,
+                created_at: epic.created_at,
+                updated_at: epic.updated_at,
+                teams,
+                owners,
+              };
+            })
+          );
+
+          return {
+            id: objective.id,
+            name: objective.name,
+            description: objective.description,
+            start_date: objective.started_at || objective.start_date,
+            target_date: objective.completed_at || objective.target_date,
+            status: objective.state || objective.status || (objective.completed ? 'done' : 'to do'),
+            app_url: objective.app_url,
+            created_at: objective.created_at,
+            updated_at: objective.updated_at,
+            epics: enrichedEpics,
+          };
+        } catch (error) {
+          console.error(`Error fetching epics for objective ${objective.id}:`, error);
+          return {
+            id: objective.id,
+            name: objective.name,
+            description: objective.description,
+            start_date: objective.started_at || objective.start_date,
+            target_date: objective.completed_at || objective.target_date,
+            status: objective.state || objective.status || (objective.completed ? 'done' : 'to do'),
+            app_url: objective.app_url,
+            created_at: objective.created_at,
+            updated_at: objective.updated_at,
+            epics: [],
+          };
+        }
+      })
+    );
+
+    res.json(enrichedInitiatives);
+  } catch (error) {
+    console.error('Error fetching major initiatives:', error);
+    res.status(500).json({ error: 'Failed to fetch major initiatives' });
+  }
+});
+
 // Get stories for a specific epic
 app.get('/api/epics/:epicId/stories', async (req, res) => {
   try {
