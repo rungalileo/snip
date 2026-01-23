@@ -288,12 +288,26 @@ app.get('/api/major-initiatives', async (req, res) => {
           }
 
           // Enrich each epic with teams and owners
+          // Fetch full epic details to ensure we get all fields including target dates
           const enrichedEpics = await Promise.all(
             epics.map(async (epic: any) => {
+              // Fetch full epic details to get all fields (some endpoints return partial data)
+              let fullEpic = epic;
+              try {
+                const epicDetailResponse = await axios.get(
+                  `${SHORTCUT_API_BASE}/epics/${epic.id}`,
+                  { headers: shortcutHeaders }
+                );
+                fullEpic = epicDetailResponse.data;
+              } catch (error) {
+                // If fetching individual epic fails, use the epic from the list
+                console.warn(`Could not fetch full details for epic ${epic.id}, using list data`);
+              }
+
               // Get team information from epic's group_id
               const teams: any[] = [];
-              if (epic.group_id) {
-                const group = groupsMap.get(epic.group_id);
+              if (fullEpic.group_id) {
+                const group = groupsMap.get(fullEpic.group_id);
                 if (group) {
                   teams.push({
                     id: group.id,
@@ -305,8 +319,8 @@ app.get('/api/major-initiatives', async (req, res) => {
 
               // Get owner information
               const owners: any[] = [];
-              if (epic.owner_ids && epic.owner_ids.length > 0) {
-                epic.owner_ids.forEach((ownerId: string) => {
+              if (fullEpic.owner_ids && fullEpic.owner_ids.length > 0) {
+                fullEpic.owner_ids.forEach((ownerId: string) => {
                   const member = membersMap.get(ownerId);
                   if (member) {
                     owners.push({
@@ -318,16 +332,60 @@ app.get('/api/major-initiatives', async (req, res) => {
                 });
               }
 
+              // Find target date - check multiple possible field names
+              // Shortcut API may use: planned_end_date, deadline, target_date, or custom fields
+              let targetDate = fullEpic.planned_end_date || 
+                              fullEpic.deadline || 
+                              fullEpic.target_date ||
+                              fullEpic.completed_at;
+              
+              // If still not found, check custom fields for date fields
+              if (!targetDate && fullEpic.custom_fields) {
+                for (const field of fullEpic.custom_fields) {
+                  // Check if this is a date field that might be the target date
+                  if (field.field_type === 'date') {
+                    // Handle different value formats (string, value_id, etc.)
+                    const fieldValue = field.value || field.value_id;
+                    if (fieldValue) {
+                      // Check field name for common target date field names
+                      const fieldName = (field.name || '').toLowerCase();
+                      if (fieldName.includes('target') || 
+                          fieldName.includes('deadline') || 
+                          fieldName.includes('end date') ||
+                          fieldName.includes('due date') ||
+                          fieldName.includes('completion date')) {
+                        targetDate = fieldValue;
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+
+              // If still not found and this epic has a milestone, check milestone dates
+              if (!targetDate && fullEpic.milestone_id) {
+                try {
+                  const milestoneResponse = await axios.get(
+                    `${SHORTCUT_API_BASE}/milestones/${fullEpic.milestone_id}`,
+                    { headers: shortcutHeaders }
+                  );
+                  const milestone = milestoneResponse.data;
+                  targetDate = milestone.completed_at || milestone.target_date || milestone.deadline;
+                } catch (error) {
+                  // Milestone fetch failed, ignore
+                }
+              }
+
               return {
-                id: epic.id,
-                name: epic.name,
-                description: epic.description,
-                start_date: epic.planned_start_date || epic.started_at,
-                target_date: epic.planned_end_date || epic.completed_at,
-                status: epic.state || (epic.completed ? 'done' : 'in progress'),
-                app_url: epic.app_url,
-                created_at: epic.created_at,
-                updated_at: epic.updated_at,
+                id: fullEpic.id,
+                name: fullEpic.name,
+                description: fullEpic.description,
+                start_date: fullEpic.planned_start_date || fullEpic.started_at,
+                target_date: targetDate,
+                status: fullEpic.state || (fullEpic.completed ? 'done' : 'in progress'),
+                app_url: fullEpic.app_url,
+                created_at: fullEpic.created_at,
+                updated_at: fullEpic.updated_at,
                 teams,
                 owners,
               };
