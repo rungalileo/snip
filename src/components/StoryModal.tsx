@@ -23,6 +23,8 @@ const LABEL_OPTIONS = [
   { name: 'NICE TO HAVE', color: '#78909c' },
   { name: 'OPTIMIZATION', color: '#00acc1' },
   { name: 'INTEGRATION WORK', color: '#ec407a' },
+  { name: 'OPERATIONS', color: '#795548' },
+  { name: 'INTERNAL TOOLS', color: '#5c6bc0' },
 ];
 
 export const StoryModal: React.FC<StoryModalProps> = ({

@@ -15,6 +15,8 @@ const LABEL_OPTIONS = [
   { name: 'NICE TO HAVE', color: '#78909c' },
   { name: 'OPTIMIZATION', color: '#00acc1' },
   { name: 'INTEGRATION WORK', color: '#ec407a' },
+  { name: 'OPERATIONS', color: '#795548' },
+  { name: 'INTERNAL TOOLS', color: '#5c6bc0' },
 ];
 
 interface StoryRowProps {
@@ -25,6 +27,9 @@ interface StoryRowProps {
   onStoryUpdate?: (updatedStory: Story) => void;
   customer?: string;
   showStatus?: boolean;
+  showCheckbox?: boolean;
+  isSelected?: boolean;
+  onCheckboxChange?: (storyId: number) => void;
 }
 
 // Helper function to get priority color
@@ -45,7 +50,7 @@ const getPriorityColor = (priority: string): string => {
 
 const COMPLETED_STATES = ['Merged to Main', 'Completed / In Prod', 'Duplicate / Unneeded', 'Needs Verification', 'In Review'];
 
-export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, isBookmarked, onStoryUpdate, customer, showStatus }) => {
+export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, isBookmarked, onStoryUpdate, customer, showStatus, showCheckbox, isSelected, onCheckboxChange }) => {
   const ownerId = story.owner_ids && story.owner_ids.length > 0 ? story.owner_ids[0] : undefined;
   const ownerName = useOwnerName(ownerId);
   const priority = getPriority(story);
@@ -116,6 +121,15 @@ export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, 
 
   return (
     <div className="story-row" onClick={onClick}>
+      {showCheckbox && (
+        <div className="col-checkbox" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={isSelected || false}
+            onChange={() => onCheckboxChange?.(story.id)}
+          />
+        </div>
+      )}
       <div className="col-priority" style={{ color: priorityColor }}>{priority}</div>
       {customer !== undefined && (
         <div className="col-customer">{customer}</div>

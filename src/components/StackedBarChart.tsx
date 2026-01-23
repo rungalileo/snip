@@ -32,6 +32,10 @@ const LABEL_COLORS: Record<string, string> = {
   'SMALL IMPROVEMENT': 'linear-gradient(180deg, #26a69a 0%, #00897b 100%)',
   'CUSTOMER FEATURE REQUEST': 'linear-gradient(180deg, #7e57c2 0%, #5e35b1 100%)',
   'NICE TO HAVE': 'linear-gradient(180deg, #8d6e63 0%, #6d4c41 100%)',
+  'OPTIMIZATION': 'linear-gradient(180deg, #26c6da 0%, #00acc1 100%)',
+  'INTEGRATION WORK': 'linear-gradient(180deg, #f06292 0%, #ec407a 100%)',
+  'OPERATIONS': 'linear-gradient(180deg, #8d6e63 0%, #795548 100%)',
+  'INTERNAL TOOLS': 'linear-gradient(180deg, #7986cb 0%, #5c6bc0 100%)',
   'OTHER': 'linear-gradient(180deg, #9e9e9e 0%, #757575 100%)', // Gray for unlabeled/other
 };
 

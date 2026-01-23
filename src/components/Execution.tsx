@@ -19,6 +19,8 @@ const LABEL_CATEGORIES = [
   'FOUNDATIONAL WORK',
   'INTEGRATION WORK',
   'OPTIMIZATION',
+  'OPERATIONS',
+  'INTERNAL TOOLS',
 ];
 
 // Add "Other" category for unlabeled or uncategorized stories
@@ -58,6 +60,8 @@ const LABEL_PRIORITY: Record<string, number> = {
   'NICE TO HAVE': 2,
   'TASK': 1,
   'SMALL IMPROVEMENT': 0,
+  'OPERATIONS': 0,
+  'INTERNAL TOOLS': 0,
 };
 
 // Get priority for a label (case-insensitive, hyphen-tolerant)
@@ -103,6 +107,8 @@ const BREAKDOWN_CATEGORY_ORDER = [
   'CUSTOMER ESCALATION',
   'INTEGRATION WORK',
   'OPTIMIZATION',
+  'OPERATIONS',
+  'INTERNAL TOOLS',
 ];
 
 const getFirstMatchingLabel = (labels: Array<{ name: string }> | undefined): string => {
