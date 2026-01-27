@@ -429,6 +429,127 @@ app.get('/api/major-initiatives', async (req, res) => {
   }
 });
 
+// Get epics for Feature Launch Calendar (with completion dates)
+app.get('/api/feature-launch-calendar', async (req, res) => {
+  try {
+    // Fetch all epics
+    const epicsResponse = await axios.get(`${SHORTCUT_API_BASE}/epics`, {
+      headers: shortcutHeaders,
+    });
+
+    const epics = epicsResponse.data;
+
+    // Fetch groups for team information
+    const groupsResponse = await axios.get(`${SHORTCUT_API_BASE}/groups`, {
+      headers: shortcutHeaders,
+    });
+    const groupsMap = new Map(groupsResponse.data.map((g: any) => [g.id, g]));
+
+    // Fetch members for owner information
+    const membersResponse = await axios.get(`${SHORTCUT_API_BASE}/members`, {
+      headers: shortcutHeaders,
+    });
+    const membersMap = new Map(membersResponse.data.map((m: any) => [m.id, m]));
+
+    // Enrich epics with full details, teams, owners, and completion dates
+    const enrichedEpics = await Promise.all(
+      epics.map(async (epic: any) => {
+        // Fetch full epic details to get all fields
+        let fullEpic = epic;
+        try {
+          const epicDetailResponse = await axios.get(
+            `${SHORTCUT_API_BASE}/epics/${epic.id}`,
+            { headers: shortcutHeaders }
+          );
+          fullEpic = epicDetailResponse.data;
+        } catch (error) {
+          // If fetching individual epic fails, use the epic from the list
+        }
+
+        // Get team information
+        const teams: any[] = [];
+        if (fullEpic.group_id) {
+          const group = groupsMap.get(fullEpic.group_id);
+          if (group) {
+            teams.push({
+              id: group.id,
+              name: group.name,
+              mention_name: group.mention_name,
+            });
+          }
+        }
+
+        // Get owner information
+        const owners: any[] = [];
+        if (fullEpic.owner_ids && fullEpic.owner_ids.length > 0) {
+          fullEpic.owner_ids.forEach((ownerId: string) => {
+            const member = membersMap.get(ownerId);
+            if (member) {
+              owners.push({
+                id: member.id,
+                name: member.profile?.name || 'Unknown',
+                email: member.profile?.email_address,
+              });
+            }
+          });
+        }
+
+        // Get completion date - check multiple possible field names
+        let completionDate = fullEpic.planned_end_date || 
+                            fullEpic.deadline || 
+                            fullEpic.target_date ||
+                            fullEpic.completed_at;
+
+        // If still not found, check custom fields for date fields
+        if (!completionDate && fullEpic.custom_fields) {
+          for (const field of fullEpic.custom_fields) {
+            if (field.field_type === 'date') {
+              const fieldValue = field.value || field.value_id;
+              if (fieldValue) {
+                const fieldName = (field.name || '').toLowerCase();
+                if (fieldName.includes('target') || 
+                    fieldName.includes('deadline') || 
+                    fieldName.includes('end date') ||
+                    fieldName.includes('due date') ||
+                    fieldName.includes('completion date')) {
+                  completionDate = fieldValue;
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        // Only include epics that have a completion date
+        if (!completionDate) {
+          return null;
+        }
+
+        return {
+          id: fullEpic.id,
+          name: fullEpic.name,
+          description: fullEpic.description || '',
+          completion_date: completionDate,
+          start_date: fullEpic.planned_start_date || fullEpic.started_at,
+          target_date: completionDate,
+          status: fullEpic.state || (fullEpic.completed ? 'done' : 'in progress'),
+          app_url: fullEpic.app_url,
+          teams,
+          owners,
+        };
+      })
+    );
+
+    // Filter out nulls (epics without completion dates)
+    const epicsWithDates = enrichedEpics.filter((epic: any) => epic !== null);
+
+    res.json(epicsWithDates);
+  } catch (error) {
+    console.error('Error fetching feature launch calendar data:', error);
+    res.status(500).json({ error: 'Failed to fetch feature launch calendar data' });
+  }
+});
+
 // Generate Executive Summary for a Major Initiative (Objective)
 app.post('/api/major-initiatives/:objectiveId/executive-summary', async (req, res) => {
   try {

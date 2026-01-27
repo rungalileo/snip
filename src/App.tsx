@@ -8,11 +8,12 @@ import { ReportViewModal } from './components/ReportViewModal';
 import { Execution } from './components/Execution';
 import { MajorInitiatives } from './components/MajorInitiatives';
 import { Customers } from './components/Customers';
+import { FeatureLaunchCalendar } from './components/FeatureLaunchCalendar';
 import { Epic, Story } from './types';
 import { api } from './api';
 import './App.css';
 
-type MainView = 'execution' | 'epics' | 'major-initiatives' | 'customers';
+type MainView = 'execution' | 'epics' | 'major-initiatives' | 'customers' | 'feature-launch-calendar';
 
 function App() {
   const [mainView, setMainView] = useState<MainView>('execution');
@@ -298,6 +299,12 @@ function App() {
           >
             Customers
           </button>
+          <button
+            className={`sub-nav-btn ${mainView === 'feature-launch-calendar' ? 'active' : ''}`}
+            onClick={() => handleMainViewChange('feature-launch-calendar')}
+          >
+            Feature Launch Calendar
+          </button>
         </div>
       </nav>
 
@@ -325,6 +332,10 @@ function App() {
 
         {mainView === 'customers' && (
           <Customers onStorySelect={handleStorySelect} />
+        )}
+
+        {mainView === 'feature-launch-calendar' && (
+          <FeatureLaunchCalendar />
         )}
 
         {/* Drawer overlay */}

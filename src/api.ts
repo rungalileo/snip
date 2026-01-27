@@ -282,4 +282,9 @@ export const api = {
     });
     return response.data;
   },
+
+  async getFeatureLaunchCalendar(): Promise<Array<EpicWithDetails & { completion_date: string }>> {
+    const response = await axios.get(`${API_BASE}/feature-launch-calendar`);
+    return response.data;
+  },
 };
