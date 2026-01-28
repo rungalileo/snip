@@ -21,6 +21,7 @@ const LABEL_CATEGORIES = [
   'OPTIMIZATION',
   'OPERATIONS',
   'INTERNAL TOOLS',
+  'TESTING',
 ];
 
 // Add "Other" category for unlabeled or uncategorized stories
