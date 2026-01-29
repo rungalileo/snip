@@ -22,6 +22,7 @@ const LABEL_CATEGORIES = [
   'OPERATIONS',
   'INTERNAL TOOLS',
   'TESTING',
+  'DOCUMENTATION',
 ];
 
 // Add "Other" category for unlabeled or uncategorized stories
