@@ -2,7 +2,11 @@ import React from 'react';
 import { Story } from '../types';
 import { StoryRow } from './StoryRow';
 import { api } from '../api';
+import { getOwnerNameFromCache } from '../hooks/useOwnerName';
 import './StoriesTableModal.css';
+
+type SortColumn = 'created' | 'owner' | 'status';
+type SortDirection = 'asc' | 'desc';
 
 const LABEL_OPTIONS = [
   { name: 'CUSTOMER ESCALATION', color: '#e53935' },
@@ -43,13 +47,49 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
   const [showLabelPicker, setShowLabelPicker] = React.useState(false);
   const [selectedLabels, setSelectedLabels] = React.useState<Set<string>>(new Set());
   const [applyingLabels, setApplyingLabels] = React.useState(false);
+  const [sortColumn, setSortColumn] = React.useState<SortColumn>('created');
+  const [sortDirection, setSortDirection] = React.useState<SortDirection>('desc');
 
-  // Sort stories by created date (most recent first)
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection(column === 'created' ? 'desc' : 'asc');
+    }
+  };
+
+  const getOwnerName = (story: Story): string => {
+    const ownerId = story.owner_ids && story.owner_ids.length > 0 ? story.owner_ids[0] : undefined;
+    return getOwnerNameFromCache(ownerId);
+  };
+
+  const getStatusName = (story: Story): string => {
+    return story.workflow_state?.name || '';
+  };
+
   const sortedStories = React.useMemo(() => {
-    return [...stories].sort((a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-  }, [stories]);
+    const sorted = [...stories].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortColumn) {
+        case 'owner':
+          comparison = getOwnerName(a).localeCompare(getOwnerName(b));
+          break;
+        case 'status':
+          comparison = getStatusName(a).localeCompare(getStatusName(b));
+          break;
+        case 'created':
+        default:
+          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [stories, sortColumn, sortDirection]);
 
   // Handle escape key to close modal
   React.useEffect(() => {
@@ -196,12 +236,27 @@ export const StoriesTableModal: React.FC<StoriesTableModalProps> = ({
                     onChange={handleSelectAll}
                   />
                 </div>
+                <div className="col-labels">Labels</div>
                 <div className="col-priority">Priority</div>
                 <div className="col-title">Title</div>
-                <div className="col-owner">Owner</div>
-                <div className="col-status">Status</div>
-                <div className="col-labels">Labels</div>
-                <div className="col-date">Created</div>
+                <div
+                  className={`col-owner sortable ${sortColumn === 'owner' ? 'sorted' : ''}`}
+                  onClick={() => handleSort('owner')}
+                >
+                  Owner {sortColumn === 'owner' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </div>
+                <div
+                  className={`col-status sortable ${sortColumn === 'status' ? 'sorted' : ''}`}
+                  onClick={() => handleSort('status')}
+                >
+                  Status {sortColumn === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </div>
+                <div
+                  className={`col-date sortable ${sortColumn === 'created' ? 'sorted' : ''}`}
+                  onClick={() => handleSort('created')}
+                >
+                  Created {sortColumn === 'created' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </div>
                 <div className="col-link">Link</div>
               </div>
               <div className="stories-table-body">

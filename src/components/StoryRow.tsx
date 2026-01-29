@@ -75,10 +75,22 @@ export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, 
     // Calculate position based on button location
     if (addButtonRef.current) {
       const rect = addButtonRef.current.getBoundingClientRect();
-      setPopupPosition({
-        top: rect.bottom + 4,
-        left: rect.left,
-      });
+      const popupHeight = 320; // Approximate height of the label popup
+      const viewportHeight = window.innerHeight;
+      const spaceBelow = viewportHeight - rect.bottom;
+
+      // If not enough space below, show above the button
+      if (spaceBelow < popupHeight) {
+        setPopupPosition({
+          top: rect.top - popupHeight - 4,
+          left: rect.left,
+        });
+      } else {
+        setPopupPosition({
+          top: rect.bottom + 4,
+          left: rect.left,
+        });
+      }
     }
 
     setShowLabelPopup(true);
@@ -132,6 +144,75 @@ export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, 
           />
         </div>
       )}
+      {showCheckbox && (
+        <div
+          className="col-labels"
+          onMouseEnter={() => setIsHoveringLabels(true)}
+          onMouseLeave={() => setIsHoveringLabels(false)}
+        >
+          <div className="labels-content">
+            {story.labels && story.labels.length > 0 ? (
+              <div className="label-chips-row">
+                {story.labels.map((label) => (
+                  <span
+                    key={label.id}
+                    className="label-chip-small"
+                  >
+                    {label.name}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="no-labels">—</span>
+            )}
+            {isHoveringLabels && !showLabelPopup && (
+              <button
+                ref={addButtonRef}
+                className="add-label-icon"
+                onClick={handleAddIconClick}
+                title="Add label"
+              >
+                +
+              </button>
+            )}
+          </div>
+          {showLabelPopup && (
+            <div
+              className="label-popup"
+              ref={popupRef}
+              onClick={(e) => e.stopPropagation()}
+              onMouseLeave={() => setShowLabelPopup(false)}
+              style={{
+                position: 'fixed',
+                top: popupPosition.top,
+                left: popupPosition.left,
+              }}
+            >
+              <div className="label-popup-title">Add Label</div>
+              <div className="label-popup-chips">
+                {LABEL_OPTIONS.map((option) => (
+                  <button
+                    key={option.name}
+                    className={`label-popup-chip ${hasLabel(option.name) ? 'chip-added' : ''}`}
+                    style={{ backgroundColor: option.color }}
+                    onClick={(e) => handleAddLabel(e, option.name)}
+                    disabled={hasLabel(option.name) || addingLabel !== null}
+                  >
+                    {addingLabel === option.name ? (
+                      <span className="label-spinner"></span>
+                    ) : (
+                      <>
+                        {option.name}
+                        {hasLabel(option.name) && ' ✓'}
+                      </>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <div className="col-priority" style={{ color: priorityColor }}>{priority}</div>
       {customer !== undefined && (
         <div className="col-customer">{customer}</div>
@@ -154,73 +235,75 @@ export const StoryRow: React.FC<StoryRowProps> = ({ story, onClick, formatDate, 
           {story.workflow_state?.name || '—'}
         </div>
       )}
-      <div
-        className="col-labels"
-        onMouseEnter={() => setIsHoveringLabels(true)}
-        onMouseLeave={() => setIsHoveringLabels(false)}
-      >
-        <div className="labels-content">
-          {story.labels && story.labels.length > 0 ? (
-            <div className="label-chips-row">
-              {story.labels.map((label) => (
-                <span
-                  key={label.id}
-                  className="label-chip-small"
-                >
-                  {label.name}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className="no-labels">—</span>
-          )}
-          {isHoveringLabels && !showLabelPopup && (
-            <button
-              ref={addButtonRef}
-              className="add-label-icon"
-              onClick={handleAddIconClick}
-              title="Add label"
+      {!showCheckbox && (
+        <div
+          className="col-labels"
+          onMouseEnter={() => setIsHoveringLabels(true)}
+          onMouseLeave={() => setIsHoveringLabels(false)}
+        >
+          <div className="labels-content">
+            {story.labels && story.labels.length > 0 ? (
+              <div className="label-chips-row">
+                {story.labels.map((label) => (
+                  <span
+                    key={label.id}
+                    className="label-chip-small"
+                  >
+                    {label.name}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="no-labels">—</span>
+            )}
+            {isHoveringLabels && !showLabelPopup && (
+              <button
+                ref={addButtonRef}
+                className="add-label-icon"
+                onClick={handleAddIconClick}
+                title="Add label"
+              >
+                +
+              </button>
+            )}
+          </div>
+          {showLabelPopup && (
+            <div
+              className="label-popup"
+              ref={popupRef}
+              onClick={(e) => e.stopPropagation()}
+              onMouseLeave={() => setShowLabelPopup(false)}
+              style={{
+                position: 'fixed',
+                top: popupPosition.top,
+                left: popupPosition.left,
+              }}
             >
-              +
-            </button>
+              <div className="label-popup-title">Add Label</div>
+              <div className="label-popup-chips">
+                {LABEL_OPTIONS.map((option) => (
+                  <button
+                    key={option.name}
+                    className={`label-popup-chip ${hasLabel(option.name) ? 'chip-added' : ''}`}
+                    style={{ backgroundColor: option.color }}
+                    onClick={(e) => handleAddLabel(e, option.name)}
+                    disabled={hasLabel(option.name) || addingLabel !== null}
+                  >
+                    {addingLabel === option.name ? (
+                      <span className="label-spinner"></span>
+                    ) : (
+                      <>
+                        {option.name}
+                        {hasLabel(option.name) && ' ✓'}
+                      </>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
-        {showLabelPopup && (
-          <div
-            className="label-popup"
-            ref={popupRef}
-            onClick={(e) => e.stopPropagation()}
-            onMouseLeave={() => setShowLabelPopup(false)}
-            style={{
-              position: 'fixed',
-              top: popupPosition.top,
-              left: popupPosition.left,
-            }}
-          >
-            <div className="label-popup-title">Add Label</div>
-            <div className="label-popup-chips">
-              {LABEL_OPTIONS.map((option) => (
-                <button
-                  key={option.name}
-                  className={`label-popup-chip ${hasLabel(option.name) ? 'chip-added' : ''}`}
-                  style={{ backgroundColor: option.color }}
-                  onClick={(e) => handleAddLabel(e, option.name)}
-                  disabled={hasLabel(option.name) || addingLabel !== null}
-                >
-                  {addingLabel === option.name ? (
-                    <span className="label-spinner"></span>
-                  ) : (
-                    <>
-                      {option.name}
-                      {hasLabel(option.name) && ' ✓'}
-                    </>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      )}
       <div className="col-date">{formatDate(story.created_at)}</div>
       <div className="col-link">
         <a
