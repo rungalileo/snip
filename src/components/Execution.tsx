@@ -21,8 +21,6 @@ const LABEL_CATEGORIES = [
   'OPTIMIZATION',
   'OPERATIONS',
   'INTERNAL TOOLS',
-  'TESTING',
-  'DOCUMENTATION',
 ];
 
 // Add "Other" category for unlabeled or uncategorized stories
@@ -1065,8 +1063,11 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
       productFeatures: Story[];
       bugFixes: Story[];
       foundationWork: Story[];
-      customerWork: Story[];
-      integrationWork: Story[];
+      smallImprovement: Story[];
+      task: Story[];
+      customerFeatureRequest: Story[];
+      niceToHave: Story[];
+      customerEscalation: Story[];
       other: Story[];
       completed: Story[];
     }> = {};
@@ -1098,8 +1099,11 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
           productFeatures: [],
           bugFixes: [],
           foundationWork: [],
-          customerWork: [],
-          integrationWork: [],
+          smallImprovement: [],
+          task: [],
+          customerFeatureRequest: [],
+          niceToHave: [],
+          customerEscalation: [],
           other: [],
           completed: [],
         };
@@ -1115,12 +1119,17 @@ export const Execution: React.FC<ExecutionProps> = ({ onStorySelect, selectedIte
         ownerMap[ownerId].bugFixes.push(story);
       } else if (category === 'FOUNDATIONAL WORK') {
         ownerMap[ownerId].foundationWork.push(story);
-      } else if (category === 'CUSTOMER FEATURE REQUEST' || category === 'CUSTOMER ESCALATION') {
-        ownerMap[ownerId].customerWork.push(story);
-      } else if (category === 'INTEGRATION WORK') {
-        ownerMap[ownerId].integrationWork.push(story);
+      } else if (category === 'SMALL IMPROVEMENT') {
+        ownerMap[ownerId].smallImprovement.push(story);
+      } else if (category === 'TASK') {
+        ownerMap[ownerId].task.push(story);
+      } else if (category === 'CUSTOMER FEATURE REQUEST') {
+        ownerMap[ownerId].customerFeatureRequest.push(story);
+      } else if (category === 'NICE TO HAVE') {
+        ownerMap[ownerId].niceToHave.push(story);
+      } else if (category === 'CUSTOMER ESCALATION') {
+        ownerMap[ownerId].customerEscalation.push(story);
       } else {
-        // Small Improvement, Task, Nice to Have, and others go into Other
         ownerMap[ownerId].other.push(story);
       }
 
@@ -1701,36 +1710,6 @@ const StatusByTeamWrapper: React.FC<{
   );
 };
 
-// Helper function to get initials from team name
-const getTeamInitials = (teamName: string): string => {
-  if (!teamName || teamName === 'unassigned') return '?';
-  // Remove special characters and split by spaces
-  const words = teamName.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 0);
-  // Get first letter of each word and capitalize
-  return words.map(w => w[0].toUpperCase()).join('');
-};
-
-// Helper function to generate consistent color from team name
-const getTeamColor = (teamName: string): string => {
-  if (!teamName || teamName === 'unassigned') return '#9e9e9e';
-
-  // Generate a hash from the team name
-  let hash = 0;
-  for (let i = 0; i < teamName.length; i++) {
-    hash = teamName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-
-  // Use predefined colors for better aesthetics
-  const colors = [
-    '#e53935', '#d81b60', '#8e24aa', '#5e35b1',
-    '#3949ab', '#1e88e5', '#039be5', '#00acc1',
-    '#00897b', '#43a047', '#7cb342', '#c0ca33',
-    '#fdd835', '#ffb300', '#fb8c00', '#f4511e',
-  ];
-
-  return colors[Math.abs(hash) % colors.length];
-};
-
 // Component to display owner breakdown table
 const OwnerBreakdownTable: React.FC<{
   ownerTableData: Array<{
@@ -1739,15 +1718,18 @@ const OwnerBreakdownTable: React.FC<{
     productFeatures: Story[];
     bugFixes: Story[];
     foundationWork: Story[];
-    customerWork: Story[];
-    integrationWork: Story[];
+    smallImprovement: Story[];
+    task: Story[];
+    customerFeatureRequest: Story[];
+    niceToHave: Story[];
+    customerEscalation: Story[];
     other: Story[];
     completed: Story[];
   }>;
   memberNamesCache: Record<string, string>;
   onStoryClick: (stories: Story[], title: string) => void;
 }> = ({ ownerTableData, memberNamesCache, onStoryClick }) => {
-  const [sortBy, setSortBy] = useState<'owner' | 'team' | 'stories' | 'productFeatures' | 'bugFixes' | 'foundationWork' | 'customerWork' | 'integrationWork' | 'other' | 'completed'>('team');
+  const [sortBy, setSortBy] = useState<'owner' | 'team' | 'stories' | 'productFeatures' | 'bugFixes' | 'foundationWork' | 'smallImprovement' | 'task' | 'customerFeatureRequest' | 'niceToHave' | 'customerEscalation' | 'other' | 'completed'>('team');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Team names are already in teamId (no need to fetch)
@@ -1788,9 +1770,11 @@ const OwnerBreakdownTable: React.FC<{
       }
     } else if (sortBy === 'stories') {
       const totalA = a.productFeatures.length + a.bugFixes.length + a.foundationWork.length +
-                     a.customerWork.length + a.integrationWork.length + a.other.length;
+                     a.smallImprovement.length + a.task.length + a.customerFeatureRequest.length +
+                     a.niceToHave.length + a.customerEscalation.length + a.other.length;
       const totalB = b.productFeatures.length + b.bugFixes.length + b.foundationWork.length +
-                     b.customerWork.length + b.integrationWork.length + b.other.length;
+                     b.smallImprovement.length + b.task.length + b.customerFeatureRequest.length +
+                     b.niceToHave.length + b.customerEscalation.length + b.other.length;
       compareValue = totalA - totalB;
     } else if (sortBy === 'productFeatures') {
       compareValue = a.productFeatures.length - b.productFeatures.length;
@@ -1798,10 +1782,16 @@ const OwnerBreakdownTable: React.FC<{
       compareValue = a.bugFixes.length - b.bugFixes.length;
     } else if (sortBy === 'foundationWork') {
       compareValue = a.foundationWork.length - b.foundationWork.length;
-    } else if (sortBy === 'customerWork') {
-      compareValue = a.customerWork.length - b.customerWork.length;
-    } else if (sortBy === 'integrationWork') {
-      compareValue = a.integrationWork.length - b.integrationWork.length;
+    } else if (sortBy === 'smallImprovement') {
+      compareValue = a.smallImprovement.length - b.smallImprovement.length;
+    } else if (sortBy === 'task') {
+      compareValue = a.task.length - b.task.length;
+    } else if (sortBy === 'customerFeatureRequest') {
+      compareValue = a.customerFeatureRequest.length - b.customerFeatureRequest.length;
+    } else if (sortBy === 'niceToHave') {
+      compareValue = a.niceToHave.length - b.niceToHave.length;
+    } else if (sortBy === 'customerEscalation') {
+      compareValue = a.customerEscalation.length - b.customerEscalation.length;
     } else if (sortBy === 'other') {
       compareValue = a.other.length - b.other.length;
     } else if (sortBy === 'completed') {
@@ -1843,12 +1833,6 @@ const OwnerBreakdownTable: React.FC<{
         <table className="owner-breakdown-table">
           <thead>
             <tr>
-              <th onClick={() => handleSort('team')} className="sortable-header">
-                <span className="header-content">
-                  Team
-                  <SortIcon column="team" />
-                </span>
-              </th>
               <th onClick={() => handleSort('owner')} className="sortable-header">
                 <span className="header-content">
                   Owner
@@ -1865,6 +1849,12 @@ const OwnerBreakdownTable: React.FC<{
                 <span className="header-content">
                   Done
                   <SortIcon column="completed" />
+                </span>
+              </th>
+              <th onClick={() => handleSort('team')} className="sortable-header">
+                <span className="header-content">
+                  Team
+                  <SortIcon column="team" />
                 </span>
               </th>
               <th onClick={() => handleSort('productFeatures')} className="sortable-header">
@@ -1885,46 +1875,56 @@ const OwnerBreakdownTable: React.FC<{
                   <SortIcon column="foundationWork" />
                 </span>
               </th>
-              <th onClick={() => handleSort('customerWork')} className="sortable-header">
+              <th onClick={() => handleSort('smallImprovement')} className="sortable-header">
                 <span className="header-content">
-                  Customer Work
-                  <SortIcon column="customerWork" />
+                  Small Improvement
+                  <SortIcon column="smallImprovement" />
                 </span>
               </th>
-              <th onClick={() => handleSort('integrationWork')} className="sortable-header">
+              <th onClick={() => handleSort('task')} className="sortable-header">
                 <span className="header-content">
-                  Integration Work
-                  <SortIcon column="integrationWork" />
+                  Task
+                  <SortIcon column="task" />
+                </span>
+              </th>
+              <th onClick={() => handleSort('customerFeatureRequest')} className="sortable-header">
+                <span className="header-content">
+                  Customer Feature Request
+                  <SortIcon column="customerFeatureRequest" />
+                </span>
+              </th>
+              <th onClick={() => handleSort('niceToHave')} className="sortable-header">
+                <span className="header-content">
+                  Nice to have
+                  <SortIcon column="niceToHave" />
+                </span>
+              </th>
+              <th onClick={() => handleSort('customerEscalation')} className="sortable-header">
+                <span className="header-content">
+                  Customer Escalation
+                  <SortIcon column="customerEscalation" />
                 </span>
               </th>
               <th onClick={() => handleSort('other')} className="sortable-header">
                 <span className="header-content">
-                  Other Work
+                  Other
                   <SortIcon column="other" />
                 </span>
               </th>
             </tr>
           </thead>
           <tbody>
-            {sortedData.map(({ ownerId, teamId, productFeatures, bugFixes, foundationWork, customerWork, integrationWork, other, completed }) => {
+            {sortedData.map(({ ownerId, teamId, productFeatures, bugFixes, foundationWork, smallImprovement, task, customerFeatureRequest, niceToHave, customerEscalation, other, completed }) => {
               const ownerName = memberNamesCache[ownerId] || 'Unknown';
               const teamName = teamNames[teamId] || 'Unknown';
               const totalStories = productFeatures.length + bugFixes.length + foundationWork.length +
-                                   customerWork.length + integrationWork.length + other.length;
-              const allStories = [...productFeatures, ...bugFixes, ...foundationWork,
-                                  ...customerWork, ...integrationWork, ...other];
+                                   smallImprovement.length + task.length + customerFeatureRequest.length +
+                                   niceToHave.length + customerEscalation.length + other.length;
+              const allStories = [...productFeatures, ...bugFixes, ...foundationWork, ...smallImprovement,
+                                  ...task, ...customerFeatureRequest, ...niceToHave, ...customerEscalation, ...other];
 
               return (
                 <tr key={ownerId}>
-                  <td className="team-cell">
-                    <span
-                      className="team-chip"
-                      style={{ backgroundColor: getTeamColor(teamName) }}
-                      data-tooltip={teamName}
-                    >
-                      {getTeamInitials(teamName)}
-                    </span>
-                  </td>
                   <td className="owner-cell">{ownerName}</td>
                   <td
                     className={`count-cell ${totalStories > 0 ? 'clickable' : 'zero-cell'}`}
@@ -1938,6 +1938,7 @@ const OwnerBreakdownTable: React.FC<{
                   >
                     {completed.length}
                   </td>
+                  <td className="team-cell">{teamName}</td>
                   <td
                     className={`count-cell ${productFeatures.length > 0 ? 'clickable' : 'zero-cell'}`}
                     onClick={() => productFeatures.length > 0 && onStoryClick(productFeatures, `${ownerName} - Product Features`)}
@@ -1957,20 +1958,38 @@ const OwnerBreakdownTable: React.FC<{
                     {foundationWork.length > 0 ? foundationWork.length : ''}
                   </td>
                   <td
-                    className={`count-cell ${customerWork.length > 0 ? 'clickable' : 'zero-cell'}`}
-                    onClick={() => customerWork.length > 0 && onStoryClick(customerWork, `${ownerName} - Customer Work`)}
+                    className={`count-cell ${smallImprovement.length > 0 ? 'clickable' : 'zero-cell'}`}
+                    onClick={() => smallImprovement.length > 0 && onStoryClick(smallImprovement, `${ownerName} - Small Improvement`)}
                   >
-                    {customerWork.length > 0 ? customerWork.length : ''}
+                    {smallImprovement.length > 0 ? smallImprovement.length : ''}
                   </td>
                   <td
-                    className={`count-cell ${integrationWork.length > 0 ? 'clickable' : 'zero-cell'}`}
-                    onClick={() => integrationWork.length > 0 && onStoryClick(integrationWork, `${ownerName} - Integration Work`)}
+                    className={`count-cell ${task.length > 0 ? 'clickable' : 'zero-cell'}`}
+                    onClick={() => task.length > 0 && onStoryClick(task, `${ownerName} - Task`)}
                   >
-                    {integrationWork.length > 0 ? integrationWork.length : ''}
+                    {task.length > 0 ? task.length : ''}
+                  </td>
+                  <td
+                    className={`count-cell ${customerFeatureRequest.length > 0 ? 'clickable' : 'zero-cell'}`}
+                    onClick={() => customerFeatureRequest.length > 0 && onStoryClick(customerFeatureRequest, `${ownerName} - Customer Feature Request`)}
+                  >
+                    {customerFeatureRequest.length > 0 ? customerFeatureRequest.length : ''}
+                  </td>
+                  <td
+                    className={`count-cell ${niceToHave.length > 0 ? 'clickable' : 'zero-cell'}`}
+                    onClick={() => niceToHave.length > 0 && onStoryClick(niceToHave, `${ownerName} - Nice to have`)}
+                  >
+                    {niceToHave.length > 0 ? niceToHave.length : ''}
+                  </td>
+                  <td
+                    className={`count-cell ${customerEscalation.length > 0 ? 'clickable' : 'zero-cell'}`}
+                    onClick={() => customerEscalation.length > 0 && onStoryClick(customerEscalation, `${ownerName} - Customer Escalation`)}
+                  >
+                    {customerEscalation.length > 0 ? customerEscalation.length : ''}
                   </td>
                   <td
                     className={`count-cell ${other.length > 0 ? 'clickable' : 'zero-cell'}`}
-                    onClick={() => other.length > 0 && onStoryClick(other, `${ownerName} - Other Work`)}
+                    onClick={() => other.length > 0 && onStoryClick(other, `${ownerName} - Other`)}
                   >
                     {other.length > 0 ? other.length : ''}
                   </td>
@@ -1981,26 +2000,33 @@ const OwnerBreakdownTable: React.FC<{
             {sortedData.length > 0 && (() => {
               const totalStories = sortedData.reduce((sum, row) =>
                 sum + row.productFeatures.length + row.bugFixes.length + row.foundationWork.length +
-                row.customerWork.length + row.integrationWork.length + row.other.length, 0);
+                row.smallImprovement.length + row.task.length + row.customerFeatureRequest.length +
+                row.niceToHave.length + row.customerEscalation.length + row.other.length, 0);
               const totalProductFeatures = sortedData.reduce((sum, row) => sum + row.productFeatures.length, 0);
               const totalBugFixes = sortedData.reduce((sum, row) => sum + row.bugFixes.length, 0);
               const totalFoundationWork = sortedData.reduce((sum, row) => sum + row.foundationWork.length, 0);
-              const totalCustomerWork = sortedData.reduce((sum, row) => sum + row.customerWork.length, 0);
-              const totalIntegrationWork = sortedData.reduce((sum, row) => sum + row.integrationWork.length, 0);
+              const totalSmallImprovement = sortedData.reduce((sum, row) => sum + row.smallImprovement.length, 0);
+              const totalTask = sortedData.reduce((sum, row) => sum + row.task.length, 0);
+              const totalCustomerFeatureRequest = sortedData.reduce((sum, row) => sum + row.customerFeatureRequest.length, 0);
+              const totalNiceToHave = sortedData.reduce((sum, row) => sum + row.niceToHave.length, 0);
+              const totalCustomerEscalation = sortedData.reduce((sum, row) => sum + row.customerEscalation.length, 0);
               const totalOther = sortedData.reduce((sum, row) => sum + row.other.length, 0);
               const totalCompleted = sortedData.reduce((sum, row) => sum + row.completed.length, 0);
 
               return (
                 <tr className="total-row">
-                  <td></td>
                   <td className="total-label"><strong>Total</strong></td>
                   <td className="count-cell"><strong>{totalStories > 0 ? totalStories : ''}</strong></td>
                   <td className="count-cell"><strong>{totalCompleted}</strong></td>
+                  <td></td>
                   <td className="count-cell"><strong>{totalProductFeatures > 0 ? totalProductFeatures : ''}</strong></td>
                   <td className="count-cell"><strong>{totalBugFixes > 0 ? totalBugFixes : ''}</strong></td>
                   <td className="count-cell"><strong>{totalFoundationWork > 0 ? totalFoundationWork : ''}</strong></td>
-                  <td className="count-cell"><strong>{totalCustomerWork > 0 ? totalCustomerWork : ''}</strong></td>
-                  <td className="count-cell"><strong>{totalIntegrationWork > 0 ? totalIntegrationWork : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalSmallImprovement > 0 ? totalSmallImprovement : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalTask > 0 ? totalTask : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalCustomerFeatureRequest > 0 ? totalCustomerFeatureRequest : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalNiceToHave > 0 ? totalNiceToHave : ''}</strong></td>
+                  <td className="count-cell"><strong>{totalCustomerEscalation > 0 ? totalCustomerEscalation : ''}</strong></td>
                   <td className="count-cell"><strong>{totalOther > 0 ? totalOther : ''}</strong></td>
                 </tr>
               );

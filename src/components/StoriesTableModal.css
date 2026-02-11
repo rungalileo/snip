@@ -127,22 +127,8 @@
   border-bottom: 1px solid #e0e0e0;
 }
 
-.stories-table-header .sortable {
-  cursor: pointer;
-  user-select: none;
-  transition: color 0.15s ease;
-}
-
-.stories-table-header .sortable:hover {
-  color: #1976d2;
-}
-
-.stories-table-header .sortable.sorted {
-  color: #1976d2;
-}
-
 .stories-table-header.has-checkbox {
-  grid-template-columns: 32px 160px 80px 1.3fr 140px 140px 100px 60px;
+  grid-template-columns: 32px 80px 1.3fr 140px 140px 160px 100px 60px;
 }
 
 .stories-table-modal .col-status {
@@ -166,7 +152,7 @@
 /* Label popup styles */
 .stories-table-modal .story-row {
   display: grid;
-  grid-template-columns: 32px 160px 80px 1.3fr 140px 140px 100px 60px;
+  grid-template-columns: 32px 80px 1.3fr 140px 140px 160px 100px 60px;
   gap: 12px;
   overflow: visible;
 }

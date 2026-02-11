@@ -260,6 +260,21 @@
   overflow-wrap: break-word;
   max-height: 150px;
   overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.overlay-description-text .description-link,
+.overlay-description-text a {
+  color: #007bff !important;
+  text-decoration: underline !important;
+  cursor: pointer !important;
+  word-break: break-all;
+}
+
+.overlay-description-text .description-link:hover,
+.overlay-description-text a:hover {
+  color: #0056b3 !important;
+  text-decoration: underline !important;
 }
 
 /* Responsive design */

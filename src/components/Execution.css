@@ -597,47 +597,6 @@
   white-space: nowrap;
 }
 
-.team-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  color: white;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  cursor: default;
-  position: relative;
-}
-
-.team-chip::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #333;
-  color: white;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.15s ease, visibility 0.15s ease;
-  margin-bottom: 6px;
-  z-index: 100;
-  pointer-events: none;
-}
-
-.team-chip:hover::after {
-  opacity: 1;
-  visibility: visible;
-}
-
 .owner-breakdown-table .count-cell {
   text-align: center;
   font-weight: 500;

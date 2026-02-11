@@ -1,0 +1,331 @@
+/* Match Customer Tickets layout: header, filters, sections, table per epic */
+
+.upcoming-tickets {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.upcoming-tickets-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.upcoming-tickets-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 24px;
+}
+
+.upcoming-tickets-filters {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  padding: 20px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.upcoming-tickets .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upcoming-tickets .filter-group label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+}
+
+.owner-dropdown,
+.customer-dropdown {
+  padding: 10px 14px;
+  font-size: 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: white;
+  min-width: 180px;
+  max-width: 280px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.owner-dropdown:focus,
+.customer-dropdown:focus {
+  border-color: #1976d2;
+}
+
+.owner-dropdown:hover,
+.customer-dropdown:hover {
+  border-color: #bdbdbd;
+}
+
+.upcoming-tickets .date-filters {
+  flex: 1;
+}
+
+.upcoming-tickets .date-filter-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.upcoming-tickets .date-filter-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  background: white;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upcoming-tickets .date-filter-btn:hover {
+  border-color: #1976d2;
+  color: #1976d2;
+}
+
+.upcoming-tickets .date-filter-btn.active {
+  background: #1976d2;
+  border-color: #1976d2;
+  color: white;
+}
+
+.upcoming-tickets-active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 10px 16px;
+  background: #e3f2fd;
+  border-radius: 8px;
+  border: 1px solid #90caf9;
+  font-size: 14px;
+  color: #1565c0;
+}
+
+.upcoming-tickets-active-filters .filter-tag {
+  display: inline-flex;
+  align-items: center;
+}
+
+.upcoming-tickets-active-filters .filter-tag-hint {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-left: 2px;
+}
+
+.upcoming-tickets-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.upcoming-tickets .ticket-section {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.upcoming-tickets .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 16px 20px;
+  font-size: 18px;
+  font-weight: 600;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.upcoming-tickets .section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.epic-section-header {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.epic-section-link {
+  color: #1565c0;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.epic-section-link:hover {
+  text-decoration: underline;
+}
+
+.upcoming-tickets .section-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
+  background: rgba(21, 101, 192, 0.15);
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.upcoming-tickets .show-completed-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+}
+
+.upcoming-tickets .show-completed-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: currentColor;
+}
+
+.upcoming-tickets .show-completed-toggle .toggle-label {
+  opacity: 0.8;
+}
+
+.upcoming-tickets .no-tickets {
+  padding: 40px 20px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* Table: 7 columns to match StoryRow (priority, title, owner, status, labels, date, link); hide labels */
+.upcoming-tickets .tickets-table {
+  overflow-x: auto;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+/* 7 columns to match StoryRow: priority, title, owner, status, labels (hidden), date, link */
+.upcoming-tickets .tickets-table-header {
+  display: grid;
+  grid-template-columns: 80px 1fr 140px 130px 0px 120px 60px;
+  gap: 12px;
+  padding: 12px 20px;
+  background: #fafafa;
+  font-weight: 600;
+  color: #555;
+  font-size: 13px;
+  border-bottom: 1px solid #e0e0e0;
+  min-width: 790px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.upcoming-tickets .tickets-table .story-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 140px 130px 0px 120px 60px;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  align-items: center;
+  min-width: 790px;
+}
+
+.upcoming-tickets .tickets-table .col-status {
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upcoming-tickets .tickets-table .col-status.status-completed {
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.upcoming-tickets .tickets-table .story-row:last-child {
+  border-bottom: none;
+}
+
+.upcoming-tickets .tickets-table .story-row:hover {
+  background: #f5f5f5;
+}
+
+/* Hide labels column (column has 0px width in grid; hide content) */
+.upcoming-tickets .tickets-table .col-labels,
+.upcoming-tickets .tickets-table .col-labels-header {
+  display: none;
+}
+
+/* Multiple owners: wrap chips in a row */
+.upcoming-tickets .tickets-table .col-owner .owner-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.upcoming-tickets .tickets-table .col-owner .owner-chips-wrap .owner-chip {
+  flex-shrink: 0;
+}
+
+/* Refresh button */
+.upcoming-tickets .refresh-btn {
+  padding: 8px 16px;
+  background: white;
+  color: #666;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.upcoming-tickets .refresh-btn:hover:not(:disabled) {
+  color: #1976d2;
+  border-color: #1976d2;
+  background: rgba(25, 118, 210, 0.05);
+}
+
+.upcoming-tickets .refresh-btn.refreshing {
+  color: #1976d2;
+  border-color: #1976d2;
+}
+
+.upcoming-tickets .refresh-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (max-width: 900px) {
+  .upcoming-tickets-filters {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .upcoming-tickets .date-filter-buttons {
+    flex-wrap: wrap;
+  }
+}

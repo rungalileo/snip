@@ -9,11 +9,12 @@ import { Execution } from './components/Execution';
 import { MajorInitiatives } from './components/MajorInitiatives';
 import { Customers } from './components/Customers';
 import { FeatureLaunchCalendar } from './components/FeatureLaunchCalendar';
+import { DevOpsEngagement } from './components/DevOpsEngagement';
 import { Epic, Story } from './types';
 import { api } from './api';
 import './App.css';
 
-type MainView = 'execution' | 'epics' | 'major-initiatives' | 'customers' | 'feature-launch-calendar';
+type MainView = 'execution' | 'epics' | 'major-initiatives' | 'customers' | 'feature-launch-calendar' | 'devops-engagement';
 
 function App() {
   const [mainView, setMainView] = useState<MainView>('execution');
@@ -305,6 +306,12 @@ function App() {
           >
             Feature Launch Calendar
           </button>
+          <button
+            className={`sub-nav-btn ${mainView === 'devops-engagement' ? 'active' : ''}`}
+            onClick={() => handleMainViewChange('devops-engagement')}
+          >
+            DevOps Engagement
+          </button>
         </div>
       </nav>
 
@@ -336,6 +343,10 @@ function App() {
 
         {mainView === 'feature-launch-calendar' && (
           <FeatureLaunchCalendar />
+        )}
+
+        {mainView === 'devops-engagement' && (
+          <DevOpsEngagement onStorySelect={handleStorySelect} />
         )}
 
         {/* Drawer overlay */}

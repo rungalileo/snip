@@ -31,6 +31,11 @@ export const api = {
     return response.data;
   },
 
+  async getMembers(): Promise<Member[]> {
+    const response = await axios.get(`${API_BASE}/members`);
+    return response.data;
+  },
+
   async getMember(memberId: string): Promise<Member> {
     const response = await axios.get(`${API_BASE}/members/${memberId}`);
     return response.data;
@@ -285,6 +290,17 @@ export const api = {
 
   async getFeatureLaunchCalendar(): Promise<Array<EpicWithDetails & { completion_date: string }>> {
     const response = await axios.get(`${API_BASE}/feature-launch-calendar`);
+    return response.data;
+  },
+
+  async getDevOpsEngagement(): Promise<{
+    objective: Objective;
+    epics: Array<Epic & { stories: Story[]; story_count: number }>;
+    all_stories: Story[];
+    total_stories: number;
+    total_epics: number;
+  }> {
+    const response = await axios.get(`${API_BASE}/devops-engagement`);
     return response.data;
   },
 };

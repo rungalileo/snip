@@ -1,0 +1,160 @@
+.current-deployments {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.current-deployments-loading,
+.current-deployments-error {
+  text-align: center;
+  padding: 48px 24px;
+  color: #666;
+}
+
+.current-deployments-error {
+  color: #c62828;
+}
+
+.current-deployments-error .retry-button {
+  margin-top: 16px;
+  padding: 8px 20px;
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.current-deployments-error .retry-button:hover {
+  background: #1565c0;
+}
+
+.current-deployments-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.current-deployments-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 24px;
+}
+
+.epic-link-header {
+  color: #1976d2;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.epic-link-header:hover {
+  text-decoration: underline;
+}
+
+.current-deployments-header .refresh-btn {
+  margin-left: auto;
+  padding: 8px 16px;
+  background: white;
+  color: #666;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.current-deployments-header .refresh-btn:hover:not(:disabled) {
+  color: #1976d2;
+  border-color: #1976d2;
+}
+
+.current-deployments-header .refresh-btn.refreshing {
+  color: #1976d2;
+  border-color: #1976d2;
+}
+
+.current-deployments-intro {
+  margin: 0 0 20px 0;
+  color: #555;
+  font-size: 14px;
+}
+
+.epic-link-inline {
+  color: #1976d2;
+  text-decoration: none;
+}
+
+.epic-link-inline:hover {
+  text-decoration: underline;
+}
+
+.no-tickets {
+  padding: 40px 20px;
+  text-align: center;
+  color: #999;
+  font-style: italic;
+}
+
+/* Reuse table layout from UpcomingTickets (7 columns, hide labels) */
+.current-deployments .tickets-table {
+  overflow-x: auto;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.current-deployments .tickets-table-header {
+  display: grid;
+  grid-template-columns: 80px 1fr 140px 130px 0px 120px 60px;
+  gap: 12px;
+  padding: 12px 20px;
+  background: #fafafa;
+  font-weight: 600;
+  color: #555;
+  font-size: 13px;
+  border-bottom: 1px solid #e0e0e0;
+  min-width: 790px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.current-deployments .tickets-table .story-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 140px 130px 0px 120px 60px;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  align-items: center;
+  min-width: 790px;
+}
+
+.current-deployments .tickets-table .story-row:last-child {
+  border-bottom: none;
+}
+
+.current-deployments .tickets-table .story-row:hover {
+  background: #f5f5f5;
+}
+
+.current-deployments .tickets-table .col-status {
+  font-size: 12px;
+  color: #666;
+}
+
+.current-deployments .tickets-table .col-status.status-completed {
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.current-deployments .tickets-table .col-labels,
+.current-deployments .tickets-table .col-labels-header {
+  display: none;
+}

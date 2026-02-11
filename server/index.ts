@@ -550,6 +550,113 @@ app.get('/api/feature-launch-calendar', async (req, res) => {
   }
 });
 
+// Get DevOps Engagement data for Objective 37151
+// Only epics and stories belonging to this objective are returned (dropdowns use this scope).
+app.get('/api/devops-engagement', async (req, res) => {
+  try {
+    const objectiveId = 37151;
+
+    // Fetch the objective
+    const objectiveResponse = await axios.get(
+      `${SHORTCUT_API_BASE}/objectives/${objectiveId}`,
+      { headers: shortcutHeaders }
+    );
+    const objective = objectiveResponse.data;
+
+    // Fetch epics for this objective only
+    let epics: any[] = [];
+    try {
+      const epicsResponse = await axios.get(
+        `${SHORTCUT_API_BASE}/objectives/${objectiveId}/epics`,
+        { headers: shortcutHeaders }
+      );
+      epics = epicsResponse.data || [];
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        // Fallback: fetch all epics and filter by objective_id (loose eq for number/string)
+        const allEpicsResponse = await axios.get(`${SHORTCUT_API_BASE}/epics`, {
+          headers: shortcutHeaders,
+        });
+        epics = (allEpicsResponse.data || []).filter(
+          (epic: any) => Number(epic.objective_id) === objectiveId
+        );
+      } else {
+        throw error;
+      }
+    }
+
+    // Only include epics that belong to this objective (defensive filter).
+    // Epics from objectives/:id/epics may not set objective_id; epics from /epics do.
+    epics = epics.filter(
+      (epic: any) =>
+        epic.objective_id == null ||
+        Number(epic.objective_id) === objectiveId
+    );
+
+    // Fetch workflows to get workflow state information
+    const workflowsResponse = await axios.get(`${SHORTCUT_API_BASE}/workflows`, {
+      headers: shortcutHeaders,
+    });
+    const workflowStateMap = new Map();
+    workflowsResponse.data.forEach((workflow: any) => {
+      workflow.states.forEach((state: any) => {
+        workflowStateMap.set(state.id, { id: state.id, name: state.name, type: state.type });
+      });
+    });
+
+    // Fetch iterations to get iteration information
+    const iterationsResponse = await axios.get(`${SHORTCUT_API_BASE}/iterations`, {
+      headers: shortcutHeaders,
+    });
+    const iterationMap = new Map();
+    iterationsResponse.data.forEach((iteration: any) => {
+      iterationMap.set(iteration.id, iteration);
+    });
+
+    // Fetch stories for each epic and enrich with workflow state
+    const epicsWithStories = await Promise.all(
+      epics.map(async (epic) => {
+        let stories: any[] = [];
+        try {
+          const storiesResponse = await axios.get(
+            `${SHORTCUT_API_BASE}/epics/${epic.id}/stories`,
+            { headers: shortcutHeaders }
+          );
+          stories = storiesResponse.data.map((story: any) => ({
+            ...story,
+            workflow_state: workflowStateMap.get(story.workflow_state_id),
+            iteration: story.iteration_id ? iterationMap.get(story.iteration_id) : undefined,
+            epic_name: epic.name,
+            epic_id: epic.id,
+          }));
+        } catch (error) {
+          console.error(`Error fetching stories for epic ${epic.id}:`, error);
+        }
+
+        return {
+          ...epic,
+          stories,
+          story_count: stories.length,
+        };
+      })
+    );
+
+    // Get all stories across all epics
+    const allStories = epicsWithStories.flatMap(epic => epic.stories);
+
+    res.json({
+      objective,
+      epics: epicsWithStories,
+      all_stories: allStories,
+      total_stories: allStories.length,
+      total_epics: epicsWithStories.length,
+    });
+  } catch (error) {
+    console.error('Error fetching DevOps Engagement data:', error);
+    res.status(500).json({ error: 'Failed to fetch DevOps Engagement data' });
+  }
+});
+
 // Generate Executive Summary for a Major Initiative (Objective)
 app.post('/api/major-initiatives/:objectiveId/executive-summary', async (req, res) => {
   try {
@@ -817,6 +924,19 @@ app.get('/api/stories/:storyId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching story:', error);
     res.status(500).json({ error: 'Failed to fetch story' });
+  }
+});
+
+// Get all members
+app.get('/api/members', async (req, res) => {
+  try {
+    const response = await axios.get(`${SHORTCUT_API_BASE}/members`, {
+      headers: shortcutHeaders,
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching members:', error);
+    res.status(500).json({ error: 'Failed to fetch members' });
   }
 });
 

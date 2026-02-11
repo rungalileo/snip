@@ -67,6 +67,97 @@ const formatDate = (dateString: string | undefined): string => {
   }
 };
 
+// Convert URLs in text to clickable links
+const renderDescriptionWithLinks = (text: string): React.ReactNode => {
+  if (!text) return null;
+  
+  console.log('renderDescriptionWithLinks called with:', text);
+  
+  // Decode HTML entities if present
+  const decodeHtml = (html: string): string => {
+    const txt = document.createElement('textarea');
+    txt.innerHTML = html;
+    return txt.value;
+  };
+  
+  // Try to decode HTML entities, but fall back to original if it fails
+  let decodedText = text;
+  try {
+    decodedText = decodeHtml(text);
+  } catch (e) {
+    decodedText = text;
+  }
+  
+  console.log('Decoded text:', decodedText);
+  
+  // More comprehensive regex to match URLs
+  // Matches: http://, https://, www., and handles various URL formats
+  const urlRegex = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+  let matchCount = 0;
+
+  // Reset regex lastIndex to avoid issues with global flag
+  urlRegex.lastIndex = 0;
+  
+  while ((match = urlRegex.exec(decodedText)) !== null) {
+    matchCount++;
+    console.log('Found URL match:', match[0], 'at index:', match.index);
+    
+    // Add text before the URL
+    if (match.index > lastIndex) {
+      const textBefore = decodedText.substring(lastIndex, match.index);
+      if (textBefore) {
+        parts.push(textBefore);
+      }
+    }
+
+    // Add the URL as a link
+    const url = match[0];
+    const href = url.startsWith('http') ? url : `https://${url}`;
+    console.log('Creating link for:', url, 'href:', href);
+    
+    parts.push(
+      <a
+        key={`link-${match.index}-${matchCount}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="description-link"
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          window.open(href, '_blank', 'noopener,noreferrer');
+        }}
+      >
+        {url}
+      </a>
+    );
+
+    lastIndex = match.index + url.length;
+  }
+
+  // Add remaining text
+  if (lastIndex < decodedText.length) {
+    const remainingText = decodedText.substring(lastIndex);
+    if (remainingText) {
+      parts.push(remainingText);
+    }
+  }
+
+  console.log('Total matches:', matchCount, 'Parts:', parts.length, 'Parts content:', parts);
+
+  // If no URLs found, return original text
+  if (parts.length === 0 || matchCount === 0) {
+    console.log('No URLs found, returning original text');
+    return <span>{decodedText}</span>;
+  }
+
+  console.log('Returning parts array wrapped in fragment');
+  return <>{parts}</>;
+};
+
 export const FeatureLaunchCalendar: React.FC = () => {
   const [epics, setEpics] = useState<CalendarEpic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -297,7 +388,9 @@ export const FeatureLaunchCalendar: React.FC = () => {
             {hoveredEpic.description && (
               <div className="overlay-description">
                 <span className="overlay-label">Description:</span>
-                <p className="overlay-description-text">{hoveredEpic.description}</p>
+                <div className="overlay-description-text">
+                  <span>{renderDescriptionWithLinks(hoveredEpic.description)}</span>
+                </div>
               </div>
             )}
           </div>

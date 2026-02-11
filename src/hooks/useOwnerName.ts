@@ -3,11 +3,6 @@ import { api } from '../api';
 
 const ownerCache = new Map<string, string>();
 
-export const getOwnerNameFromCache = (ownerId: string | undefined): string => {
-  if (!ownerId) return 'Unassigned';
-  return ownerCache.get(ownerId) || 'Unknown';
-};
-
 export const useOwnerName = (ownerId: string | undefined): string => {
   const [ownerName, setOwnerName] = useState<string>('Unassigned');
 
